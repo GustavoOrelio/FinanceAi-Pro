@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useApp } from '@/contexts/AppContext';
+import { useMemo } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
@@ -52,7 +53,7 @@ function SidebarContent({ onNavItemClick }: { onNavItemClick?: () => void }) {
 
   if (!user) return null;
 
-  const navItems = [
+  const navItems = useMemo(() => [
     { href: '/dashboard', icon: <Home size={20} />, label: 'Dashboard' },
     { href: '/stores', icon: <Store size={20} />, label: 'Lojas' },
     { href: '/analytics', icon: <LineChart size={20} />, label: 'Análises' },
@@ -62,7 +63,7 @@ function SidebarContent({ onNavItemClick }: { onNavItemClick?: () => void }) {
     { href: '/mood-tracker', icon: <SmilePlus size={20} />, label: 'Humor' },
     { href: '/notifications', icon: <Bell size={20} />, label: 'Notificações' },
     { href: '/settings', icon: <Settings size={20} />, label: 'Configurações' },
-  ];
+  ], []);
 
   const handleLogout = () => {
     logout();
@@ -100,7 +101,7 @@ function SidebarContent({ onNavItemClick }: { onNavItemClick?: () => void }) {
       </div>
 
       {/* Navegação */}
-      <ScrollArea className="flex-1 px-3">
+      <div className="flex-1 px-3">
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => (
             <NavItem
@@ -111,7 +112,7 @@ function SidebarContent({ onNavItemClick }: { onNavItemClick?: () => void }) {
             />
           ))}
         </nav>
-      </ScrollArea>
+      </div>
 
       {/* Botão de Logout */}
       <div className="p-3 border-t">
