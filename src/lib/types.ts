@@ -2,11 +2,6 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  avatar?: string;
-  level: UserLevel;
-  achievements: Achievement[];
-  monthlyLimit: number;
-  totalSaved: number;
   xp: number;
 }
 
@@ -20,34 +15,46 @@ export interface Store {
   id: string;
   name: string;
   category: string;
-  logo?: string;
-  address?: string;
 }
 
 export interface Purchase {
   id: string;
-  storeId?: string;
+  storeId: string;
   userId: string;
   amount: number;
+  paidAmount: number;
+  remainingAmount: number;
   date: string;
   category: string;
   description?: string;
-  status: "pending" | "paid";
+  status: "pending" | "partially_paid" | "paid";
+  payments: Payment[];
   paidAt?: string;
+  paymentMethod?: "credit" | "debit" | "pix" | "money";
+  installments?: number;
+}
+
+export interface Payment {
+  id: string;
+  purchaseId: string;
+  amount: number;
+  date: string;
+  method: "credit" | "debit" | "pix" | "money";
+  installments?: number;
 }
 
 export interface Goal {
   id: string;
   userId: string;
   title: string;
-  description: string;
+  description?: string;
   targetAmount: number;
   currentAmount: number;
-  deadline: string;
-  category: "savings" | "investment" | "purchase" | "debt" | "other";
-  priority: "low" | "medium" | "high";
+  deadline?: string;
+  category: string;
+  status: "active" | "completed" | "failed";
   createdAt: string;
-  completed: boolean;
+  completedAt?: string;
 }
 
 export interface Achievement {

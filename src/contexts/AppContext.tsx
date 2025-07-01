@@ -23,16 +23,23 @@ interface AppContextType extends AppState {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useLocalStorage<AppState>('app-state', {
-    user: null,
-    stores: [],
-    purchases: [],
-    goals: [],
-    darkMode: false,
-    monthlyLimit: 0,
-    isAuthenticated: false,
-  });
+interface AppProviderProps {
+  children: React.ReactNode;
+  initialData?: AppState;
+}
+
+const defaultState: AppState = {
+  user: null,
+  stores: [],
+  purchases: [],
+  goals: [],
+  darkMode: false,
+  monthlyLimit: 0,
+  isAuthenticated: false,
+};
+
+export function AppProvider({ children, initialData }: AppProviderProps) {
+  const [state, setState] = useLocalStorage<AppState>('app-state', initialData || defaultState);
 
   // Efeito para aplicar o tema
   useEffect(() => {
@@ -45,7 +52,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.darkMode]);
 
   const updateState = useCallback((update: AppStateUpdate) => {
-    setState(prev => ({
+    setState((prev: AppState) => ({
       ...prev,
       ...update,
     }));
