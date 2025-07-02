@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { PurchaseForm } from "./purchase-form"
 import { PaymentDialog } from "./payment-dialog"
+import { BatchPaymentDialog } from "./batch-payment-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
@@ -37,10 +38,33 @@ export function StoreContent({ storeId }: StoreContentProps) {
       ...purchase,
       payments: purchase.payments || []
     }))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
+  console.log('=== ESTADO DAS COMPRAS ===')
+  storePurchases.forEach(purchase => {
+    console.log('Compra:', {
+      id: purchase.id,
+      description: purchase.description,
+      amount: purchase.amount,
+      paidAmount: purchase.paidAmount,
+      remainingAmount: purchase.remainingAmount,
+      status: purchase.status,
+      payments: purchase.payments.length
+    })
+  })
+
+  const pendingPurchases = storePurchases.filter(p => p.status === 'pending' || p.status === 'partially_paid')
   const totalSpent = storePurchases.reduce((acc, p) => acc + p.amount, 0)
-  const totalPending = storePurchases.reduce((acc, p) => acc + p.remainingAmount, 0)
+  const totalPending = storePurchases.reduce((acc, p) => acc + (p.remainingAmount || 0), 0)
   const averagePurchase = storePurchases.length > 0 ? totalSpent / storePurchases.length : 0
+
+  console.log('=== TOTAIS ===')
+  console.log({
+    totalGasto: totalSpent,
+    totalPendente: totalPending,
+    mediaPorCompra: averagePurchase,
+    comprasPendentes: pendingPurchases.length
+  })
 
   const handleRemovePurchase = (purchaseId: string) => {
     removePurchase(purchaseId)
@@ -107,6 +131,16 @@ export function StoreContent({ storeId }: StoreContentProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {pendingPurchases.length > 1 && (
+                  <BatchPaymentDialog
+                    pendingPurchases={pendingPurchases.map(p => ({
+                      id: p.id,
+                      description: p.description,
+                      remainingAmount: p.remainingAmount
+                    }))}
+                  />
+                )}
+
                 {storePurchases.length === 0 ? (
                   <p className="text-muted-foreground">Nenhuma compra registrada</p>
                 ) : (
@@ -123,8 +157,18 @@ export function StoreContent({ storeId }: StoreContentProps) {
                           <div className="flex items-start gap-4">
                             <div className="text-right">
                               <p className="font-medium">{formatCurrency(purchase.amount)}</p>
-                              <p className={`text-sm ${purchase.status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`}>
-                                {purchase.status === 'paid' ? 'Pago' : `Restante: ${formatCurrency(purchase.remainingAmount)}`}
+                              <p className={`text-sm ${purchase.status === 'paid'
+                                ? 'text-green-600'
+                                : purchase.status === 'partially_paid'
+                                  ? 'text-blue-600'
+                                  : 'text-yellow-600'
+                                }`}>
+                                {purchase.status === 'paid'
+                                  ? 'Pago'
+                                  : purchase.status === 'partially_paid'
+                                    ? `Parcialmente Pago - Restante: ${formatCurrency(purchase.remainingAmount)}`
+                                    : `Pendente: ${formatCurrency(purchase.remainingAmount)}`
+                                }
                               </p>
                             </div>
                             <AlertDialog>
@@ -166,7 +210,7 @@ export function StoreContent({ storeId }: StoreContentProps) {
                           </div>
                         )}
 
-                        {purchase.status === 'pending' && (
+                        {(purchase.status === 'pending' || purchase.status === 'partially_paid') && (
                           <div className="mt-4">
                             <PaymentDialog
                               purchaseId={purchase.id}

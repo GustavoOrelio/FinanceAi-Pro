@@ -28,7 +28,7 @@ export interface Purchase {
   date: string;
   category: string;
   description: string;
-  status: "pending" | "paid";
+  status: "pending" | "partially_paid" | "paid";
   payments: Payment[];
   installments?: number;
 }
