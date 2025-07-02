@@ -1,8 +1,16 @@
 'use client';
 
-import React, { createContext, useContext, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { AppState, AppStateUpdate, User, Purchase, Store, Goal } from '@/lib/types';
+
+interface Payment {
+  id: string;
+  purchaseId: string;
+  amount: number;
+  method: 'pix' | 'credit' | 'debit' | 'cash';
+  date: string;
+}
 
 interface AppContextType extends AppState {
   updateState: (update: AppStateUpdate) => void;
@@ -10,7 +18,7 @@ interface AppContextType extends AppState {
   login: (user: User) => void;
   logout: () => void;
   addPurchase: (purchase: Purchase) => void;
-  updatePurchase: (purchaseId: string, updates: Purchase) => void;
+  updatePurchase: (purchase: Purchase) => void;
   removePurchase: (purchaseId: string) => void;
   addStore: (store: Store) => void;
   updateStore: (storeId: string, updates: Store) => void;
@@ -19,6 +27,7 @@ interface AppContextType extends AppState {
   updateGoal: (goalId: string, updates: Goal) => void;
   removeGoal: (goalId: string) => void;
   setMonthlyLimit: (limit: number) => void;
+  addPayment: (payment: Payment) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -82,10 +91,10 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     });
   }, [state.purchases, updateState]);
 
-  const updatePurchase = useCallback((purchaseId: string, updates: Purchase) => {
+  const updatePurchase = useCallback((purchase: Purchase) => {
     updateState({
       purchases: state.purchases.map(p =>
-        p.id === purchaseId ? { ...p, ...updates } : p
+        p.id === purchase.id ? purchase : p
       ),
     });
   }, [state.purchases, updateState]);
@@ -140,6 +149,26 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     updateState({ monthlyLimit: limit });
   }, [updateState]);
 
+  const addPayment = useCallback((payment: Payment) => {
+    updateState({
+      purchases: state.purchases.map(purchase => {
+        if (purchase.id === payment.purchaseId) {
+          const newPaidAmount = purchase.paidAmount + payment.amount;
+          const newRemainingAmount = purchase.amount - newPaidAmount;
+
+          return {
+            ...purchase,
+            paidAmount: newPaidAmount,
+            remainingAmount: newRemainingAmount,
+            status: newRemainingAmount <= 0 ? 'paid' as const : 'pending' as const,
+            payments: [...purchase.payments, payment]
+          };
+        }
+        return purchase;
+      }),
+    });
+  }, [state.purchases, updateState]);
+
   const value: AppContextType = {
     ...state,
     updateState,
@@ -156,6 +185,7 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     updateGoal,
     removeGoal,
     setMonthlyLimit,
+    addPayment,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
