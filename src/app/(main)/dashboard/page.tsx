@@ -8,9 +8,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { Store, ArrowUpCircle, ArrowDownCircle, Target, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
   const { user, purchases, stores, monthlyLimit } = useApp();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Cálculos financeiros
   const currentMonth = new Date().getMonth();
@@ -81,13 +87,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', {
+              {isClient ? new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(totalSpentThisMonth)}
+              }).format(totalSpentThisMonth) : '...'}
             </div>
             <p className="text-xs text-muted-foreground">
-              {currentMonthPurchases.length} compras este mês
+              {isClient ? `${currentMonthPurchases.length} compras este mês` : 'Carregando...'}
             </p>
           </CardContent>
         </Card>
@@ -99,12 +105,12 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', {
+              {isClient ? new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(remainingBudget)}
+              }).format(remainingBudget) : '...'}
             </div>
-            <Progress value={spentPercentage} className="h-2" />
+            <Progress value={isClient ? spentPercentage : 0} className="h-2" />
           </CardContent>
         </Card>
 
@@ -115,10 +121,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', {
+              {isClient ? new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(monthlyLimit)}
+              }).format(monthlyLimit) : '...'}
             </div>
             <p className="text-xs text-muted-foreground">
               Meta definida
@@ -133,10 +139,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', {
+              {isClient ? new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(totalSaved)}
+              }).format(totalSaved) : '...'}
             </div>
             <p className="text-xs text-muted-foreground">
               Desde o início
@@ -175,10 +181,10 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium">
-                      {new Intl.NumberFormat('pt-BR', {
+                      {isClient ? new Intl.NumberFormat('pt-BR', {
                         style: 'currency',
                         currency: 'BRL'
-                      }).format(store.totalSpent)}
+                      }).format(store.totalSpent) : '...'}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Total gasto

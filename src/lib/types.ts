@@ -16,6 +16,7 @@ export interface Store {
   name: string;
   description?: string;
   category: string;
+  logo?: string;
 }
 
 export interface Purchase {
