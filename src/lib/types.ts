@@ -14,6 +14,7 @@ export interface UserLevel {
 export interface Store {
   id: string;
   name: string;
+  description?: string;
   category: string;
 }
 
@@ -26,11 +27,9 @@ export interface Purchase {
   remainingAmount: number;
   date: string;
   category: string;
-  description?: string;
-  status: "pending" | "partially_paid" | "paid";
+  description: string;
+  status: "pending" | "paid";
   payments: Payment[];
-  paidAt?: string;
-  paymentMethod?: "credit" | "debit" | "pix" | "money";
   installments?: number;
 }
 
@@ -38,9 +37,8 @@ export interface Payment {
   id: string;
   purchaseId: string;
   amount: number;
+  method: "pix" | "credit" | "debit" | "cash";
   date: string;
-  method: "credit" | "debit" | "pix" | "money";
-  installments?: number;
 }
 
 export interface Goal {
@@ -52,7 +50,7 @@ export interface Goal {
   currentAmount: number;
   deadline?: string;
   category: string;
-  status: "active" | "completed" | "failed";
+  status: "active" | "completed" | "cancelled";
   createdAt: string;
   completedAt?: string;
 }
