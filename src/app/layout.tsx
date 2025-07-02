@@ -51,7 +51,7 @@ export const viewport: Viewport = {
 const initialData: AppState = {
   user: {
     id: 'user-1',
-    name: 'Usuário',
+    name: 'Usuário Teste',
     email: 'usuario@exemplo.com',
     xp: 0,
   },
