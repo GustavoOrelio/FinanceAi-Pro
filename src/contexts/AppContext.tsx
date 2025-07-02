@@ -18,7 +18,7 @@ interface AppContextType extends AppState {
   login: (user: User) => void;
   logout: () => void;
   addPurchase: (purchase: Purchase) => void;
-  updatePurchase: (purchase: Purchase) => void;
+  updatePurchase: (purchaseId: string, updates: Partial<Purchase>) => void;
   removePurchase: (purchaseId: string) => void;
   addStore: (store: Store) => void;
   updateStore: (storeId: string, updates: Store) => void;
@@ -34,10 +34,10 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 interface AppProviderProps {
   children: React.ReactNode;
-  initialData?: AppState;
+  initialData?: Partial<AppState>;
 }
 
-const defaultState: AppState = {
+const initialState: AppState = {
   user: null,
   stores: [],
   purchases: [],
@@ -48,7 +48,10 @@ const defaultState: AppState = {
 };
 
 export function AppProvider({ children, initialData }: AppProviderProps) {
-  const [state, setState] = useLocalStorage<AppState>('app-state', initialData || defaultState);
+  const [state, setState] = useLocalStorage<AppState>(
+    'app-state',
+    { ...initialState, ...initialData }
+  );
 
   // Efeito para aplicar o tema
   useEffect(() => {
@@ -61,10 +64,10 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
   }, [state.darkMode]);
 
   const updateState = useCallback((update: AppStateUpdate) => {
-    setState((prev: AppState) => ({
-      ...prev,
-      ...update,
-    }));
+    setState(current => {
+      const newState = { ...current, ...update };
+      return newState;
+    });
   }, [setState]);
 
   const toggleDarkMode = useCallback(() => {
@@ -72,17 +75,11 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
   }, [state.darkMode, updateState]);
 
   const login = useCallback((user: User) => {
-    updateState({
-      user,
-      isAuthenticated: true,
-    });
+    updateState({ user, isAuthenticated: true });
   }, [updateState]);
 
   const logout = useCallback(() => {
-    updateState({
-      user: null,
-      isAuthenticated: false,
-    });
+    updateState({ user: null, isAuthenticated: false });
   }, [updateState]);
 
   const addPurchase = useCallback((purchase: Purchase) => {
@@ -91,10 +88,10 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     });
   }, [state.purchases, updateState]);
 
-  const updatePurchase = useCallback((purchase: Purchase) => {
+  const updatePurchase = useCallback((purchaseId: string, updates: Partial<Purchase>) => {
     updateState({
       purchases: state.purchases.map(p =>
-        p.id === purchase.id ? purchase : p
+        p.id === purchaseId ? { ...p, ...updates } : p
       ),
     });
   }, [state.purchases, updateState]);
@@ -150,45 +147,111 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
   }, [updateState]);
 
   const addPayment = useCallback((payment: Payment) => {
-    updateState({
-      purchases: state.purchases.map(purchase => {
-        if (purchase.id === payment.purchaseId) {
-          const newPaidAmount = purchase.paidAmount + payment.amount;
-          const newRemainingAmount = purchase.amount - newPaidAmount;
+    console.log('=== INÍCIO DO REGISTRO DE PAGAMENTO ===');
+    console.log('Dados do pagamento recebido:', {
+      id: payment.id,
+      compraId: payment.purchaseId,
+      valor: payment.amount,
+      metodo: payment.method,
+      data: payment.date
+    });
 
-          return {
+    setState(currentState => {
+      const updatedPurchases = currentState.purchases.map(purchase => {
+        if (purchase.id === payment.purchaseId) {
+          console.log('=== ENCONTRADA COMPRA PARA ATUALIZAR ===');
+          console.log('Estado atual da compra:', {
+            id: purchase.id,
+            description: purchase.description,
+            amount: purchase.amount,
+            paidAmount: purchase.paidAmount,
+            remainingAmount: purchase.remainingAmount,
+            status: purchase.status,
+            paymentsCount: purchase.payments?.length || 0
+          });
+
+          const newPaidAmount = (purchase.paidAmount || 0) + payment.amount;
+          const newRemainingAmount = Math.max(0, purchase.amount - newPaidAmount);
+
+          let newStatus: Purchase['status'];
+          if (newRemainingAmount === 0) {
+            newStatus = 'paid';
+          } else if (newPaidAmount > 0) {
+            newStatus = 'partially_paid';
+          } else {
+            newStatus = 'pending';
+          }
+
+          console.log('Calculando novos valores:', {
+            valorPago: payment.amount,
+            totalPagoAntes: purchase.paidAmount || 0,
+            totalPagoDepois: newPaidAmount,
+            restanteAntes: purchase.remainingAmount,
+            restanteDepois: newRemainingAmount,
+            statusAntes: purchase.status,
+            statusDepois: newStatus
+          });
+
+          const updatedPurchase = {
             ...purchase,
             paidAmount: newPaidAmount,
             remainingAmount: newRemainingAmount,
-            status: newRemainingAmount <= 0 ? 'paid' as const : 'pending' as const,
-            payments: [...purchase.payments, payment]
+            status: newStatus,
+            payments: [...(purchase.payments || []), payment]
           };
+
+          console.log('=== COMPRA ATUALIZADA ===');
+          console.log('Novo estado da compra:', {
+            id: updatedPurchase.id,
+            description: updatedPurchase.description,
+            amount: updatedPurchase.amount,
+            paidAmount: updatedPurchase.paidAmount,
+            remainingAmount: updatedPurchase.remainingAmount,
+            status: updatedPurchase.status,
+            paymentsCount: updatedPurchase.payments.length
+          });
+
+          return updatedPurchase;
         }
         return purchase;
-      }),
+      });
+
+      console.log('=== ESTADO FINAL ===');
+      console.log('Todas as compras após atualização:', updatedPurchases);
+
+      return {
+        ...currentState,
+        purchases: updatedPurchases,
+      };
     });
-  }, [state.purchases, updateState]);
 
-  const value: AppContextType = {
-    ...state,
-    updateState,
-    toggleDarkMode,
-    login,
-    logout,
-    addPurchase,
-    updatePurchase,
-    removePurchase,
-    addStore,
-    updateStore,
-    removeStore,
-    addGoal,
-    updateGoal,
-    removeGoal,
-    setMonthlyLimit,
-    addPayment,
-  };
+    console.log('=== FIM DO REGISTRO DE PAGAMENTO ===');
+  }, [setState]);
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider
+      value={{
+        ...state,
+        updateState,
+        toggleDarkMode,
+        login,
+        logout,
+        addPurchase,
+        updatePurchase,
+        removePurchase,
+        addStore,
+        updateStore,
+        removeStore,
+        addGoal,
+        updateGoal,
+        removeGoal,
+        setMonthlyLimit,
+        addPayment,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
 }
 
 export function useApp() {
