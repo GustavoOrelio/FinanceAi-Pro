@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { hashPassword, generateToken } from "@/lib/auth";
 
 export async function GET() {
   try {
     const users = await prisma.user.findMany({
-      include: {
-        _count: {
-          select: {
-            purchases: true,
-            goals: true,
-          },
-        },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        xp: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
-
     return NextResponse.json(users);
   } catch (error) {
     console.error("Erro ao buscar usuários:", error);
@@ -27,16 +27,56 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email } = body;
+    const { name, email, password } = body;
 
+    if (!password) {
+      return NextResponse.json(
+        { error: "Senha é obrigatória" },
+        { status: 400 }
+      );
+    }
+
+    // Verifica se o usuário já existe
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "Email já cadastrado" },
+        { status: 400 }
+      );
+    }
+
+    // Hash da senha
+    const hashedPassword = await hashPassword(password);
+
+    // Cria o usuário
     const user = await prisma.user.create({
       data: {
         name,
         email,
+        password: hashedPassword,
+        xp: 0,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        xp: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-    return NextResponse.json(user);
+    // Gera o token
+    const token = generateToken({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    });
+
+    return NextResponse.json({ user, token });
   } catch (error) {
     console.error("Erro ao criar usuário:", error);
     return NextResponse.json(
