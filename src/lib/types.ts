@@ -3,6 +3,8 @@ export interface User {
   name: string;
   email: string;
   xp: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface UserLevel {
@@ -17,6 +19,8 @@ export interface Store {
   description?: string;
   category: string;
   logo?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Purchase {
@@ -26,20 +30,25 @@ export interface Purchase {
   amount: number;
   paidAmount: number;
   remainingAmount: number;
-  date: string;
+  date: Date;
   category: string;
   description: string;
-  status: "pending" | "partially_paid" | "paid";
-  payments: Payment[];
+  status: string;
   installments?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  store?: Store;
+  payments?: Payment[];
 }
 
 export interface Payment {
   id: string;
   purchaseId: string;
   amount: number;
-  method: "pix" | "credit" | "debit" | "cash";
-  date: string;
+  method: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Goal {
@@ -49,11 +58,12 @@ export interface Goal {
   description?: string;
   targetAmount: number;
   currentAmount: number;
-  deadline?: string;
+  deadline?: Date;
   category: string;
-  status: "active" | "completed" | "cancelled";
-  createdAt: string;
-  completedAt?: string;
+  status: string;
+  createdAt: Date;
+  completedAt?: Date;
+  updatedAt: Date;
 }
 
 export interface Achievement {
@@ -75,3 +85,8 @@ export interface AppState {
 }
 
 export type AppStateUpdate = Partial<AppState>;
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+}
