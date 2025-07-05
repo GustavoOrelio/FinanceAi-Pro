@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useApp();
+  const { login, register } = useApp();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
@@ -40,24 +41,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Simula uma chamada de API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // TODO: Integrar com API real
-      login({
-        id: '1',
-        name: 'Usuário Teste',
-        email: loginData.email,
-        level: {
-          current: 1,
-          experience: 0,
-          nextLevelThreshold: 100,
-        },
-        achievements: [],
-        monthlyLimit: 1000,
-        totalSaved: 0,
-      });
-
+      await login(loginData.email, loginData.password);
       router.push('/dashboard');
     } catch (error) {
       console.error('Erro ao fazer login:', error);
@@ -72,25 +56,14 @@ export default function LoginPage() {
 
     try {
       if (registerData.password !== registerData.confirmPassword) {
-        throw new Error('As senhas não coincidem');
+        toast.error('As senhas não coincidem');
+        return;
       }
 
-      // Simula uma chamada de API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // TODO: Integrar com API real
-      login({
-        id: '1',
+      await register({
         name: registerData.name,
         email: registerData.email,
-        level: {
-          current: 1,
-          experience: 0,
-          nextLevelThreshold: 100,
-        },
-        achievements: [],
-        monthlyLimit: 1000,
-        totalSaved: 0,
+        password: registerData.password,
       });
 
       router.push('/dashboard');
@@ -106,14 +79,12 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Simula uma chamada de API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // TODO: Integrar com API real
+      // TODO: Implementar recuperação de senha
       setResetPasswordOpen(false);
-      alert('Se o email existir em nossa base, você receberá as instruções de recuperação.');
+      toast.success('Se o email existir em nossa base, você receberá as instruções de recuperação.');
     } catch (error) {
       console.error('Erro ao solicitar recuperação de senha:', error);
+      toast.error('Erro ao solicitar recuperação de senha');
     } finally {
       setIsLoading(false);
     }
