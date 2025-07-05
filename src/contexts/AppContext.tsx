@@ -2,17 +2,9 @@
 
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { AppState, AppStateUpdate, User, Purchase, Store, Goal } from '@/lib/types';
+import type { AppState, AppStateUpdate, User, Purchase, Store, Goal, Payment } from '@/lib/types';
 import { userService, storeService, purchaseService, goalService, paymentService, authService } from '@/services/api';
 import { toast } from 'sonner';
-
-interface Payment {
-  id: string;
-  purchaseId: string;
-  amount: number;
-  method: 'pix' | 'credit' | 'debit' | 'cash';
-  date: string;
-}
 
 interface AppContextType extends AppState {
   updateState: (update: AppStateUpdate) => void;
@@ -32,6 +24,7 @@ interface AppContextType extends AppState {
   setMonthlyLimit: (limit: number) => Promise<void>;
   addPayment: (payment: Omit<Payment, 'id'>) => Promise<void>;
   isLoading: boolean;
+  isHydrated: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -57,6 +50,17 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     { ...initialState, ...initialData }
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Efeito para marcar quando a hidratação foi completada
+  useEffect(() => {
+    // Aguarda um pouco para garantir que o localStorage foi carregado
+    const timer = setTimeout(() => {
+      setIsHydrated(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Efeito para aplicar o tema
   useEffect(() => {
@@ -429,6 +433,7 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     setMonthlyLimit,
     addPayment,
     isLoading,
+    isHydrated,
   };
 
   return (

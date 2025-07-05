@@ -15,13 +15,13 @@ export default function MainLayout({
 
   // Redireciona para login se não estiver autenticado
   useEffect(() => {
-    if (!app.isAuthenticated) {
+    if (app.isHydrated && !app.isAuthenticated) {
       router.push('/login');
     }
-  }, [app.isAuthenticated, router]);
+  }, [app.isAuthenticated, app.isHydrated, router]);
 
-  // Não renderiza nada enquanto verifica autenticação
-  if (!app.isAuthenticated) {
+  // Não renderiza nada enquanto verifica autenticação ou hidratação
+  if (!app.isHydrated || !app.isAuthenticated) {
     return null;
   }
 

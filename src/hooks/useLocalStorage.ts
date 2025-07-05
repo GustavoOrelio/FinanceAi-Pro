@@ -1,22 +1,30 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 export function useLocalStorage<T>(
   key: string,
   initialValue: T
 ): [T, (value: T | ((val: T) => T)) => void] {
   // Estado para armazenar o valor
-  const [storedValue, setStoredValue] = useState<T>(() => {
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Efeito para carregar dados do localStorage apenas no cliente
+  useEffect(() => {
     try {
-      if (typeof window === "undefined") return initialValue;
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      if (typeof window !== "undefined") {
+        const item = window.localStorage.getItem(key);
+        if (item) {
+          setStoredValue(JSON.parse(item));
+        }
+      }
     } catch (error) {
-      console.error(error);
-      return initialValue;
+      console.error("Erro ao carregar dados do localStorage:", error);
+    } finally {
+      setIsHydrated(true);
     }
-  });
+  }, [key]);
 
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
@@ -30,7 +38,7 @@ export function useLocalStorage<T>(
           return valueToStore;
         });
       } catch (error) {
-        console.error(error);
+        console.error("Erro ao salvar dados no localStorage:", error);
       }
     },
     [key]

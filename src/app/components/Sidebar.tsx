@@ -49,9 +49,9 @@ function NavItem({ href, icon, label, isActive, onClick }: NavItemProps) {
 
 function SidebarContent({ onNavItemClick }: { onNavItemClick?: () => void }) {
   const pathname = usePathname();
-  const { user, logout } = useApp();
+  const { user, logout, isHydrated } = useApp();
 
-  if (!user) return null;
+  if (!user || !isHydrated) return null;
 
   const navItems = useMemo(() => [
     { href: '/dashboard', icon: <Home size={20} />, label: 'Dashboard' },
