@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { AppState, AppStateUpdate, User, Purchase, Store, Goal } from '@/lib/types';
+import { userService, storeService, purchaseService, goalService, paymentService, authService } from '@/services/api';
+import { toast } from 'sonner';
 
 interface Payment {
   id: string;
@@ -15,19 +17,21 @@ interface Payment {
 interface AppContextType extends AppState {
   updateState: (update: AppStateUpdate) => void;
   toggleDarkMode: () => void;
-  login: (user: User) => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
-  addPurchase: (purchase: Purchase) => void;
-  updatePurchase: (purchaseId: string, updates: Partial<Purchase>) => void;
-  removePurchase: (purchaseId: string) => void;
-  addStore: (store: Store) => void;
-  updateStore: (storeId: string, updates: Store) => void;
-  removeStore: (storeId: string) => void;
-  addGoal: (goal: Goal) => void;
-  updateGoal: (goalId: string, updates: Goal) => void;
-  removeGoal: (goalId: string) => void;
-  setMonthlyLimit: (limit: number) => void;
-  addPayment: (payment: Payment) => void;
+  addPurchase: (purchase: Omit<Purchase, 'id'>) => Promise<void>;
+  updatePurchase: (purchaseId: string, updates: Partial<Purchase>) => Promise<void>;
+  removePurchase: (purchaseId: string) => Promise<void>;
+  addStore: (store: Omit<Store, 'id'>) => Promise<void>;
+  updateStore: (storeId: string, updates: Partial<Store>) => Promise<void>;
+  removeStore: (storeId: string) => Promise<void>;
+  addGoal: (goal: Omit<Goal, 'id'>) => Promise<void>;
+  updateGoal: (goalId: string, updates: Partial<Goal>) => Promise<void>;
+  removeGoal: (goalId: string) => Promise<void>;
+  setMonthlyLimit: (limit: number) => Promise<void>;
+  addPayment: (payment: Omit<Payment, 'id'>) => Promise<void>;
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -52,6 +56,7 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     'app-state',
     { ...initialState, ...initialData }
   );
+  const [isLoading, setIsLoading] = useState(false);
 
   // Efeito para aplicar o tema
   useEffect(() => {
@@ -62,6 +67,74 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
       root.classList.remove('dark');
     }
   }, [state.darkMode]);
+
+  // Efeito para verificar token no localStorage
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token && state.isAuthenticated) {
+      logout();
+    }
+  }, []);
+
+  // Efeito para carregar dados iniciais
+  useEffect(() => {
+    if (state.isAuthenticated && state.user) {
+      loadInitialData();
+    }
+  }, [state.isAuthenticated, state.user?.id]);
+
+  const loadInitialData = async () => {
+    if (!state.user?.id) {
+      console.log('loadInitialData: Usuário não encontrado no estado');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('loadInitialData: Token não encontrado no localStorage');
+      logout();
+      return;
+    }
+
+    console.log('loadInitialData: Verificando token...');
+    try {
+      await authService.verifyToken();
+    } catch (error) {
+      console.error('loadInitialData: Erro na verificação do token:', error);
+      toast.error('Sessão expirada. Por favor, faça login novamente.');
+      logout();
+      return;
+    }
+
+    console.log('loadInitialData: Token válido, carregando dados...');
+    setIsLoading(true);
+    try {
+      console.log('loadInitialData: Fazendo requisições para API...');
+      const [stores, purchases, goals] = await Promise.all([
+        storeService.getAll(),
+        purchaseService.getByUser(state.user.id),
+        goalService.getByUser(state.user.id),
+      ]);
+
+      console.log('loadInitialData: Dados carregados com sucesso', {
+        storesCount: stores.length,
+        purchasesCount: purchases.length,
+        goalsCount: goals.length
+      });
+
+      setState(current => ({
+        ...current,
+        stores,
+        purchases,
+        goals,
+      }));
+    } catch (error) {
+      console.error('loadInitialData: Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados. Por favor, tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const updateState = useCallback((update: AppStateUpdate) => {
     setState(current => {
@@ -74,181 +147,292 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     updateState({ darkMode: !state.darkMode });
   }, [state.darkMode, updateState]);
 
-  const login = useCallback((user: User) => {
-    updateState({ user, isAuthenticated: true });
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      console.log('Iniciando processo de login...');
+      const { user, token } = await authService.login(email, password);
+      console.log('Login bem sucedido, dados do usuário:', { id: user.id, email: user.email });
+
+      // Primeiro salvamos o token
+      console.log('Salvando token no localStorage...');
+      localStorage.setItem('token', token);
+
+      // Aumentamos o delay para garantir que o token foi salvo
+      console.log('Aguardando token ser salvo...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Depois atualizamos o estado
+      console.log('Atualizando estado com dados do usuário...');
+      updateState({ user, isAuthenticated: true });
+
+      // Outro pequeno delay antes de carregar os dados
+      console.log('Aguardando estado ser atualizado...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Por fim carregamos os dados
+      console.log('Iniciando carregamento de dados iniciais...');
+      await loadInitialData();
+
+      console.log('Login completo com sucesso!');
+      toast.success('Login realizado com sucesso');
+    } catch (error) {
+      console.error('Erro detalhado no login:', error);
+      toast.error('Email ou senha inválidos');
+      throw error;
+    }
+  }, [updateState]);
+
+  const register = useCallback(async (data: { name: string; email: string; password: string }) => {
+    try {
+      const { user, token } = await authService.register(data);
+
+      // Primeiro salvamos o token
+      localStorage.setItem('token', token);
+
+      // Aumentamos o delay para garantir que o token foi salvo
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Depois atualizamos o estado
+      updateState({ user, isAuthenticated: true });
+
+      // Outro pequeno delay antes de carregar os dados
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Por fim carregamos os dados
+      await loadInitialData();
+
+      toast.success('Cadastro realizado com sucesso');
+    } catch (error) {
+      console.error('Erro ao fazer cadastro:', error);
+      toast.error('Erro ao fazer cadastro');
+      throw error;
+    }
   }, [updateState]);
 
   const logout = useCallback(() => {
-    updateState({ user: null, isAuthenticated: false });
-  }, [updateState]);
-
-  const addPurchase = useCallback((purchase: Purchase) => {
-    updateState({
-      purchases: [...state.purchases, purchase],
-    });
-  }, [state.purchases, updateState]);
-
-  const updatePurchase = useCallback((purchaseId: string, updates: Partial<Purchase>) => {
-    updateState({
-      purchases: state.purchases.map(p =>
-        p.id === purchaseId ? { ...p, ...updates } : p
-      ),
-    });
-  }, [state.purchases, updateState]);
-
-  const removePurchase = useCallback((purchaseId: string) => {
-    updateState({
-      purchases: state.purchases.filter(p => p.id !== purchaseId),
-    });
-  }, [state.purchases, updateState]);
-
-  const addStore = useCallback((store: Store) => {
-    updateState({
-      stores: [...state.stores, store],
-    });
-  }, [state.stores, updateState]);
-
-  const updateStore = useCallback((storeId: string, updates: Store) => {
-    updateState({
-      stores: state.stores.map(s =>
-        s.id === storeId ? { ...s, ...updates } : s
-      ),
-    });
-  }, [state.stores, updateState]);
-
-  const removeStore = useCallback((storeId: string) => {
-    updateState({
-      stores: state.stores.filter(s => s.id !== storeId),
-    });
-  }, [state.stores, updateState]);
-
-  const addGoal = useCallback((goal: Goal) => {
-    updateState({
-      goals: [...state.goals, goal],
-    });
-  }, [state.goals, updateState]);
-
-  const updateGoal = useCallback((goalId: string, updates: Goal) => {
-    updateState({
-      goals: state.goals.map(g =>
-        g.id === goalId ? { ...g, ...updates } : g
-      ),
-    });
-  }, [state.goals, updateState]);
-
-  const removeGoal = useCallback((goalId: string) => {
-    updateState({
-      goals: state.goals.filter(g => g.id !== goalId),
-    });
-  }, [state.goals, updateState]);
-
-  const setMonthlyLimit = useCallback((limit: number) => {
-    updateState({ monthlyLimit: limit });
-  }, [updateState]);
-
-  const addPayment = useCallback((payment: Payment) => {
-    console.log('=== INÍCIO DO REGISTRO DE PAGAMENTO ===');
-    console.log('Dados do pagamento recebido:', {
-      id: payment.id,
-      compraId: payment.purchaseId,
-      valor: payment.amount,
-      metodo: payment.method,
-      data: payment.date
-    });
-
-    setState(currentState => {
-      const updatedPurchases = currentState.purchases.map(purchase => {
-        if (purchase.id === payment.purchaseId) {
-          console.log('=== ENCONTRADA COMPRA PARA ATUALIZAR ===');
-          console.log('Estado atual da compra:', {
-            id: purchase.id,
-            description: purchase.description,
-            amount: purchase.amount,
-            paidAmount: purchase.paidAmount,
-            remainingAmount: purchase.remainingAmount,
-            status: purchase.status,
-            paymentsCount: purchase.payments?.length || 0
-          });
-
-          const newPaidAmount = (purchase.paidAmount || 0) + payment.amount;
-          const newRemainingAmount = Math.max(0, purchase.amount - newPaidAmount);
-
-          let newStatus: Purchase['status'];
-          if (newRemainingAmount === 0) {
-            newStatus = 'paid';
-          } else if (newPaidAmount > 0) {
-            newStatus = 'partially_paid';
-          } else {
-            newStatus = 'pending';
-          }
-
-          console.log('Calculando novos valores:', {
-            valorPago: payment.amount,
-            totalPagoAntes: purchase.paidAmount || 0,
-            totalPagoDepois: newPaidAmount,
-            restanteAntes: purchase.remainingAmount,
-            restanteDepois: newRemainingAmount,
-            statusAntes: purchase.status,
-            statusDepois: newStatus
-          });
-
-          const updatedPurchase = {
-            ...purchase,
-            paidAmount: newPaidAmount,
-            remainingAmount: newRemainingAmount,
-            status: newStatus,
-            payments: [...(purchase.payments || []), payment]
-          };
-
-          console.log('=== COMPRA ATUALIZADA ===');
-          console.log('Novo estado da compra:', {
-            id: updatedPurchase.id,
-            description: updatedPurchase.description,
-            amount: updatedPurchase.amount,
-            paidAmount: updatedPurchase.paidAmount,
-            remainingAmount: updatedPurchase.remainingAmount,
-            status: updatedPurchase.status,
-            paymentsCount: updatedPurchase.payments.length
-          });
-
-          return updatedPurchase;
-        }
-        return purchase;
-      });
-
-      console.log('=== ESTADO FINAL ===');
-      console.log('Todas as compras após atualização:', updatedPurchases);
-
-      return {
-        ...currentState,
-        purchases: updatedPurchases,
-      };
-    });
-
-    console.log('=== FIM DO REGISTRO DE PAGAMENTO ===');
+    authService.logout();
+    localStorage.removeItem('app-state');
+    localStorage.removeItem('token');
+    setState({ ...initialState });
+    toast.success('Logout realizado com sucesso');
   }, [setState]);
 
+  const addPurchase = useCallback(async (purchase: Omit<Purchase, 'id'>) => {
+    if (!state.user?.id) {
+      toast.error('Você precisa estar logado para adicionar uma compra');
+      return;
+    }
+
+    try {
+      const newPurchase = await purchaseService.create({
+        ...purchase,
+        userId: state.user.id,
+      });
+      setState(current => ({
+        ...current,
+        purchases: [...current.purchases, newPurchase],
+      }));
+      toast.success('Compra adicionada com sucesso');
+    } catch (error) {
+      console.error('Erro ao adicionar compra:', error);
+      toast.error('Erro ao adicionar compra');
+      throw error;
+    }
+  }, [state.user?.id, setState]);
+
+  const updatePurchase = useCallback(async (purchaseId: string, updates: Partial<Purchase>) => {
+    try {
+      const updatedPurchase = await purchaseService.update(purchaseId, updates);
+      setState(current => ({
+        ...current,
+        purchases: current.purchases.map(p =>
+          p.id === purchaseId ? updatedPurchase : p
+        ),
+      }));
+      toast.success('Compra atualizada com sucesso');
+    } catch (error) {
+      console.error('Erro ao atualizar compra:', error);
+      toast.error('Erro ao atualizar compra');
+      throw error;
+    }
+  }, [setState]);
+
+  const removePurchase = useCallback(async (purchaseId: string) => {
+    try {
+      await purchaseService.delete(purchaseId);
+      setState(current => ({
+        ...current,
+        purchases: current.purchases.filter(p => p.id !== purchaseId),
+      }));
+      toast.success('Compra removida com sucesso');
+    } catch (error) {
+      console.error('Erro ao remover compra:', error);
+      toast.error('Erro ao remover compra');
+      throw error;
+    }
+  }, [setState]);
+
+  const addStore = useCallback(async (store: Omit<Store, 'id'>) => {
+    try {
+      const newStore = await storeService.create(store);
+      setState(current => ({
+        ...current,
+        stores: [...current.stores, newStore],
+      }));
+      toast.success('Loja adicionada com sucesso');
+    } catch (error) {
+      console.error('Erro ao adicionar loja:', error);
+      toast.error('Erro ao adicionar loja');
+      throw error;
+    }
+  }, [setState]);
+
+  const updateStore = useCallback(async (storeId: string, updates: Partial<Store>) => {
+    try {
+      const updatedStore = await storeService.update(storeId, updates);
+      setState(current => ({
+        ...current,
+        stores: current.stores.map(s =>
+          s.id === storeId ? updatedStore : s
+        ),
+      }));
+      toast.success('Loja atualizada com sucesso');
+    } catch (error) {
+      console.error('Erro ao atualizar loja:', error);
+      toast.error('Erro ao atualizar loja');
+      throw error;
+    }
+  }, [setState]);
+
+  const removeStore = useCallback(async (storeId: string) => {
+    try {
+      await storeService.delete(storeId);
+      setState(current => ({
+        ...current,
+        stores: current.stores.filter(s => s.id !== storeId),
+      }));
+      toast.success('Loja removida com sucesso');
+    } catch (error) {
+      console.error('Erro ao remover loja:', error);
+      toast.error('Erro ao remover loja');
+      throw error;
+    }
+  }, [setState]);
+
+  const addGoal = useCallback(async (goal: Omit<Goal, 'id'>) => {
+    try {
+      const newGoal = await goalService.create(goal);
+      setState(current => ({
+        ...current,
+        goals: [...current.goals, newGoal],
+      }));
+      toast.success('Meta adicionada com sucesso');
+    } catch (error) {
+      console.error('Erro ao adicionar meta:', error);
+      toast.error('Erro ao adicionar meta');
+      throw error;
+    }
+  }, [setState]);
+
+  const updateGoal = useCallback(async (goalId: string, updates: Partial<Goal>) => {
+    try {
+      const updatedGoal = await goalService.update(goalId, updates);
+      setState(current => ({
+        ...current,
+        goals: current.goals.map(g =>
+          g.id === goalId ? updatedGoal : g
+        ),
+      }));
+      toast.success('Meta atualizada com sucesso');
+    } catch (error) {
+      console.error('Erro ao atualizar meta:', error);
+      toast.error('Erro ao atualizar meta');
+      throw error;
+    }
+  }, [setState]);
+
+  const removeGoal = useCallback(async (goalId: string) => {
+    try {
+      await goalService.delete(goalId);
+      setState(current => ({
+        ...current,
+        goals: current.goals.filter(g => g.id !== goalId),
+      }));
+      toast.success('Meta removida com sucesso');
+    } catch (error) {
+      console.error('Erro ao remover meta:', error);
+      toast.error('Erro ao remover meta');
+      throw error;
+    }
+  }, [setState]);
+
+  const setMonthlyLimit = useCallback(async (limit: number) => {
+    if (!state.user?.id) return;
+
+    try {
+      await userService.update(state.user.id, { monthlyLimit: limit });
+      setState(current => ({
+        ...current,
+        monthlyLimit: limit,
+      }));
+      toast.success('Limite mensal atualizado com sucesso');
+    } catch (error) {
+      console.error('Erro ao atualizar limite mensal:', error);
+      toast.error('Erro ao atualizar limite mensal');
+      throw error;
+    }
+  }, [state.user?.id, setState]);
+
+  const addPayment = useCallback(async (payment: Omit<Payment, 'id'>) => {
+    try {
+      const newPayment = await paymentService.create(payment);
+
+      // Atualiza o estado da compra
+      const purchase = state.purchases.find(p => p.id === payment.purchaseId);
+      if (purchase) {
+        const newPaidAmount = (purchase.paidAmount || 0) + payment.amount;
+        const newRemainingAmount = Math.max(0, purchase.amount - newPaidAmount);
+        const newStatus = newRemainingAmount === 0 ? 'paid' : 'partially_paid';
+
+        await updatePurchase(purchase.id, {
+          paidAmount: newPaidAmount,
+          remainingAmount: newRemainingAmount,
+          status: newStatus,
+          payments: [...(purchase.payments || []), newPayment],
+        });
+      }
+
+      toast.success('Pagamento registrado com sucesso');
+    } catch (error) {
+      console.error('Erro ao registrar pagamento:', error);
+      toast.error('Erro ao registrar pagamento');
+      throw error;
+    }
+  }, [state.purchases, updatePurchase]);
+
+  const value = {
+    ...state,
+    updateState,
+    toggleDarkMode,
+    login,
+    register,
+    logout,
+    addPurchase,
+    updatePurchase,
+    removePurchase,
+    addStore,
+    updateStore,
+    removeStore,
+    addGoal,
+    updateGoal,
+    removeGoal,
+    setMonthlyLimit,
+    addPayment,
+    isLoading,
+  };
+
   return (
-    <AppContext.Provider
-      value={{
-        ...state,
-        updateState,
-        toggleDarkMode,
-        login,
-        logout,
-        addPurchase,
-        updatePurchase,
-        removePurchase,
-        addStore,
-        updateStore,
-        removeStore,
-        addGoal,
-        updateGoal,
-        removeGoal,
-        setMonthlyLimit,
-        addPayment,
-      }}
-    >
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );
