@@ -48,13 +48,28 @@ const getAuthHeaders = () => {
     console.error("getAuthHeaders: Token não encontrado no localStorage");
     throw new Error("Token inválido");
   }
+
+  // Obtém o estado da aplicação para pegar o ID do usuário
+  const appState = localStorage.getItem("app-state");
+  let userId = "";
+  if (appState) {
+    try {
+      const state = JSON.parse(appState);
+      userId = state.user?.id || "";
+    } catch (error) {
+      console.error("getAuthHeaders: Erro ao parsear app-state:", error);
+    }
+  }
+
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
+    "x-user-id": userId,
   };
   console.log("getAuthHeaders: Headers configurados:", {
     ...headers,
     Authorization: headers.Authorization.substring(0, 20) + "...", // Mostra apenas parte do token
+    "x-user-id": userId,
   });
   return headers;
 };

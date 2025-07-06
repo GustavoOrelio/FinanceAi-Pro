@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,44 +12,7 @@ import { toast } from 'sonner';
 import { Plus, Target, Trash2, Wallet, TrendingUp, ShoppingBag, CreditCard, Clock } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-
-interface Goal {
-  id: string;
-  title: string;
-  description: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: string;
-  category: 'savings' | 'investment' | 'purchase' | 'debt' | 'other';
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
-}
-
-// Dados simulados
-const initialGoals: Goal[] = [
-  {
-    id: '1',
-    title: 'Fundo de Emergência',
-    description: 'Guardar 6 meses de despesas para emergências',
-    targetAmount: 30000,
-    currentAmount: 15000,
-    deadline: '2024-12-31',
-    category: 'savings',
-    priority: 'high',
-    createdAt: '2024-01-01',
-  },
-  {
-    id: '2',
-    title: 'Viagem de Férias',
-    description: 'Viagem para a Europa em 2025',
-    targetAmount: 20000,
-    currentAmount: 5000,
-    deadline: '2025-06-30',
-    category: 'purchase',
-    priority: 'medium',
-    createdAt: '2024-02-15',
-  },
-];
+import type { Goal } from '@/lib/types';
 
 const CATEGORIES = [
   { value: 'savings', label: 'Poupança', icon: Wallet },
@@ -65,66 +29,78 @@ const PRIORITIES = [
 ] as const;
 
 export default function GoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>(initialGoals);
+  const { goals, addGoal, updateGoal, removeGoal, user } = useApp();
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState<Partial<Goal>>({
     title: '',
     description: '',
     targetAmount: 0,
     currentAmount: 0,
-    deadline: '',
+    deadline: undefined,
     category: 'other',
-    priority: 'medium',
+    status: 'active',
   });
   const [sortBy, setSortBy] = useState<'deadline' | 'progress' | 'priority'>('deadline');
   const [filterCategory, setFilterCategory] = useState<Goal['category'] | 'all'>('all');
 
-  const handleAddGoal = () => {
+  const handleAddGoal = async () => {
     if (!newGoal.title || !newGoal.targetAmount || !newGoal.deadline) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
 
-    const goal: Goal = {
-      id: Date.now().toString(),
-      title: newGoal.title,
-      description: newGoal.description || '',
-      targetAmount: Number(newGoal.targetAmount),
-      currentAmount: Number(newGoal.currentAmount) || 0,
-      deadline: newGoal.deadline,
-      category: newGoal.category || 'other',
-      priority: newGoal.priority || 'medium',
-      createdAt: new Date().toISOString(),
-    };
+    if (!user?.id) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
 
-    setGoals(prev => [...prev, goal]);
-    setNewGoal({
-      title: '',
-      description: '',
-      targetAmount: 0,
-      currentAmount: 0,
-      deadline: '',
-      category: 'other',
-      priority: 'medium',
-    });
-    setIsAddingGoal(false);
-    toast.success('Meta adicionada com sucesso!');
+    try {
+      await addGoal({
+        userId: user.id,
+        title: newGoal.title,
+        description: newGoal.description || '',
+        targetAmount: Number(newGoal.targetAmount),
+        currentAmount: Number(newGoal.currentAmount) || 0,
+        deadline: newGoal.deadline ? new Date(newGoal.deadline) : undefined,
+        category: newGoal.category || 'other',
+        status: newGoal.status || 'active',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      setNewGoal({
+        title: '',
+        description: '',
+        targetAmount: 0,
+        currentAmount: 0,
+        deadline: undefined,
+        category: 'other',
+        status: 'active',
+      });
+      setIsAddingGoal(false);
+    } catch (error) {
+      console.error('Erro ao adicionar meta:', error);
+    }
   };
 
-  const handleDeleteGoal = (id: string) => {
-    setGoals(prev => prev.filter(goal => goal.id !== id));
-    toast.success('Meta removida com sucesso!');
+  const handleDeleteGoal = async (id: string) => {
+    try {
+      await removeGoal(id);
+    } catch (error) {
+      console.error('Erro ao remover meta:', error);
+    }
   };
 
-  const handleUpdateProgress = (id: string, newAmount: number) => {
-    setGoals(prev => prev.map(goal => {
-      if (goal.id === id) {
-        const updatedAmount = Math.min(newAmount, goal.targetAmount);
-        return { ...goal, currentAmount: updatedAmount };
-      }
-      return goal;
-    }));
-    toast.success('Progresso atualizado com sucesso!');
+  const handleUpdateProgress = async (id: string, newAmount: number) => {
+    try {
+      const goal = goals.find(g => g.id === id);
+      if (!goal) return;
+
+      const updatedAmount = Math.min(newAmount, goal.targetAmount);
+      await updateGoal(id, { currentAmount: updatedAmount });
+    } catch (error) {
+      console.error('Erro ao atualizar progresso:', error);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -138,7 +114,8 @@ export default function GoalsPage() {
     return Math.min(Math.round((current / target) * 100), 100);
   };
 
-  const calculateRemainingDays = (deadline: string) => {
+  const calculateRemainingDays = (deadline: Date | undefined) => {
+    if (!deadline) return 0;
     const today = new Date();
     const deadlineDate = new Date(deadline);
     const diffTime = deadlineDate.getTime() - today.getTime();
@@ -154,12 +131,16 @@ export default function GoalsPage() {
     return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'deadline':
+          if (!a.deadline && !b.deadline) return 0;
+          if (!a.deadline) return 1;
+          if (!b.deadline) return -1;
           return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         case 'progress':
           return (b.currentAmount / b.targetAmount) - (a.currentAmount / a.targetAmount);
         case 'priority':
-          const priorityOrder = { high: 0, medium: 1, low: 2 };
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
+          // Como não temos priority no tipo Goal, vamos usar status como fallback
+          const statusOrder = { active: 0, completed: 1, paused: 2 };
+          return (statusOrder[a.status as keyof typeof statusOrder] || 0) - (statusOrder[b.status as keyof typeof statusOrder] || 0);
         default:
           return 0;
       }
@@ -212,7 +193,7 @@ export default function GoalsPage() {
           <SelectContent>
             <SelectItem value="deadline">Data limite</SelectItem>
             <SelectItem value="progress">Progresso</SelectItem>
-            <SelectItem value="priority">Prioridade</SelectItem>
+            <SelectItem value="priority">Status</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -270,51 +251,28 @@ export default function GoalsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="category">Categoria</Label>
-                <Select
-                  value={newGoal.category}
-                  onValueChange={(value: Goal['category']) =>
-                    setNewGoal(prev => ({ ...prev, category: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(category => (
-                      <SelectItem key={category.value} value={category.value}>
-                        <div className="flex items-center gap-2">
-                          <category.icon className="h-4 w-4" />
-                          {category.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="priority">Prioridade</Label>
-                <Select
-                  value={newGoal.priority}
-                  onValueChange={(value: Goal['priority']) =>
-                    setNewGoal(prev => ({ ...prev, priority: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a prioridade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map(priority => (
-                      <SelectItem key={priority.value} value={priority.value}>
-                        <span className={priority.color}>{priority.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="category">Categoria</Label>
+              <Select
+                value={newGoal.category}
+                onValueChange={(value: Goal['category']) =>
+                  setNewGoal(prev => ({ ...prev, category: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(category => (
+                    <SelectItem key={category.value} value={category.value}>
+                      <div className="flex items-center gap-2">
+                        <category.icon className="h-4 w-4" />
+                        {category.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -322,8 +280,8 @@ export default function GoalsPage() {
               <Input
                 id="deadline"
                 type="date"
-                value={newGoal.deadline}
-                onChange={(e) => setNewGoal(prev => ({ ...prev, deadline: e.target.value }))}
+                value={newGoal.deadline ? new Date(newGoal.deadline).toISOString().split('T')[0] : ''}
+                onChange={(e) => setNewGoal(prev => ({ ...prev, deadline: e.target.value ? new Date(e.target.value) : undefined }))}
               />
             </div>
 
@@ -348,9 +306,11 @@ export default function GoalsPage() {
                   <CardTitle className="flex items-center gap-2">
                     {goal.title}
                     <Badge variant="outline" className={
-                      PRIORITIES.find(p => p.value === goal.priority)?.color
+                      goal.status === 'active' ? 'text-green-500' :
+                        goal.status === 'completed' ? 'text-blue-500' : 'text-yellow-500'
                     }>
-                      {PRIORITIES.find(p => p.value === goal.priority)?.label}
+                      {goal.status === 'active' ? 'Ativa' :
+                        goal.status === 'completed' ? 'Concluída' : 'Pausada'}
                     </Badge>
                   </CardTitle>
                   <Badge variant="secondary">
@@ -381,7 +341,7 @@ export default function GoalsPage() {
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
                   <span>
-                    {calculateRemainingDays(goal.deadline)} dias restantes
+                    {goal.deadline ? `${calculateRemainingDays(goal.deadline)} dias restantes` : 'Sem data limite'}
                   </span>
                 </div>
                 <Button
