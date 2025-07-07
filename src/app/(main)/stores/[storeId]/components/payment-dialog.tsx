@@ -84,7 +84,7 @@ export function PaymentDialog({ purchaseId, remainingAmount, onPaymentSuccess }:
         purchaseId,
         amount: paymentAmount,
         method: data.method,
-        date: data.date,
+        date: new Date(data.date),
       }
 
       addPayment(payment)
