@@ -42,12 +42,7 @@ export function generateToken(user: AuthUser): string {
 
 export function verifyToken(token: string): AuthUser {
   try {
-    console.log("verifyToken: Verificando token...");
     const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
-    console.log("verifyToken: Token válido, usuário:", {
-      id: decoded.id,
-      email: decoded.email,
-    });
     return decoded;
   } catch (error) {
     console.error("verifyToken: Erro ao verificar token:", error);
@@ -56,24 +51,19 @@ export function verifyToken(token: string): AuthUser {
 }
 
 export async function validateUser(email: string, password: string) {
-  console.log("validateUser: Validando usuário:", { email });
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
   if (!user) {
-    console.log("validateUser: Usuário não encontrado");
     throw new Error("Usuário não encontrado");
   }
 
-  console.log("validateUser: Verificando senha");
   const isValid = await comparePasswords(password, user.password);
   if (!isValid) {
-    console.log("validateUser: Senha incorreta");
     throw new Error("Senha incorreta");
   }
 
-  console.log("validateUser: Usuário validado com sucesso");
   return user;
 }
 
