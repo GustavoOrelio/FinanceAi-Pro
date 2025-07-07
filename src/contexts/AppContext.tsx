@@ -89,18 +89,15 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
 
   const loadInitialData = async () => {
     if (!state.user?.id) {
-      console.log('loadInitialData: Usuário não encontrado no estado');
       return;
     }
 
     const token = localStorage.getItem('token');
     if (!token) {
-      console.log('loadInitialData: Token não encontrado no localStorage');
       logout();
       return;
     }
 
-    console.log('loadInitialData: Verificando token...');
     try {
       await authService.verifyToken();
     } catch (error) {
@@ -110,21 +107,13 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
       return;
     }
 
-    console.log('loadInitialData: Token válido, carregando dados...');
     setIsLoading(true);
     try {
-      console.log('loadInitialData: Fazendo requisições para API...');
       const [stores, purchases, goals] = await Promise.all([
         storeService.getAll(),
         purchaseService.getByUser(state.user.id),
         goalService.getByUser(state.user.id),
       ]);
-
-      console.log('loadInitialData: Dados carregados com sucesso', {
-        storesCount: stores.length,
-        purchasesCount: purchases.length,
-        goalsCount: goals.length
-      });
 
       setState(current => ({
         ...current,
@@ -153,34 +142,15 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      console.log('Iniciando processo de login...');
       const { user, token } = await authService.login(email, password);
-      console.log('Login bem sucedido, dados do usuário:', { id: user.id, email: user.email });
-
-      // Primeiro salvamos o token
-      console.log('Salvando token no localStorage...');
       localStorage.setItem('token', token);
-
-      // Aumentamos o delay para garantir que o token foi salvo
-      console.log('Aguardando token ser salvo...');
       await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Depois atualizamos o estado
-      console.log('Atualizando estado com dados do usuário...');
       updateState({ user, isAuthenticated: true });
-
-      // Outro pequeno delay antes de carregar os dados
-      console.log('Aguardando estado ser atualizado...');
       await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Por fim carregamos os dados
-      console.log('Iniciando carregamento de dados iniciais...');
       await loadInitialData();
-
-      console.log('Login completo com sucesso!');
       toast.success('Login realizado com sucesso');
     } catch (error) {
-      console.error('Erro detalhado no login:', error);
+      console.error('Erro no login:', error);
       toast.error('Email ou senha inválidos');
       throw error;
     }
