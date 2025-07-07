@@ -98,11 +98,6 @@ export function BatchPaymentDialog({ pendingPurchases, onPaymentSuccess }: Batch
       setIsLoading(true)
       const paymentAmount = parseFloat(data.amount)
 
-      console.log('=== INÍCIO DO PAGAMENTO EM LOTE ===')
-      console.log('Valor informado para pagamento:', paymentAmount)
-      console.log('Método de pagamento:', data.method)
-      console.log('Data:', data.date)
-
       if (paymentAmount <= 0) {
         toast.error("O valor do pagamento deve ser maior que zero")
         return
@@ -123,56 +118,29 @@ export function BatchPaymentDialog({ pendingPurchases, onPaymentSuccess }: Batch
         .filter(p => selectedPurchases.includes(p.id))
         .sort((a, b) => b.remainingAmount - a.remainingAmount) // Ordenar do maior para o menor
 
-      console.log('=== COMPRAS SELECIONADAS ===')
-      selectedPurchaseDetails.forEach((purchase, index) => {
-        console.log(`Compra ${index + 1}:`, {
-          id: purchase.id,
-          description: purchase.description,
-          remainingAmount: purchase.remainingAmount
-        })
-      })
-
       let remainingPayment = paymentAmount
-      const payments: Payment[] = []
+      const payments: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>[] = []
 
       // Distribuir o pagamento entre todas as compras selecionadas
       for (const purchase of selectedPurchaseDetails) {
         if (remainingPayment <= 0) break;
 
-        console.log(`=== PAGANDO COMPRA ${purchase.id} ===`);
-        console.log('Valor disponível:', remainingPayment);
-        console.log('Valor necessário:', purchase.remainingAmount);
-
         // Determinar quanto será pago nesta compra
         const paymentForThisPurchase = Math.min(remainingPayment, purchase.remainingAmount);
 
-        const payment = {
-          id: Date.now().toString() + '-' + purchase.id,
+        const payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'> = {
           purchaseId: purchase.id,
           amount: paymentForThisPurchase,
           method: data.method,
           date: data.date,
         };
         payments.push(payment);
-        console.log('Pagamento registrado:', payment);
 
         remainingPayment = Math.max(0, remainingPayment - paymentForThisPurchase);
-        console.log('Valor restante após pagamento:', remainingPayment);
       }
 
-      console.log('=== RESUMO DOS PAGAMENTOS ===');
-      payments.forEach((payment, index) => {
-        console.log(`Pagamento ${index + 1}:`, {
-          compraId: payment.purchaseId,
-          valor: payment.amount,
-          metodo: payment.method
-        });
-      });
-
       // Registrar todos os pagamentos
-      console.log('=== REGISTRANDO PAGAMENTOS ===');
       for (const payment of payments) {
-        console.log('Chamando addPayment com:', payment);
         addPayment(payment);
       }
 
@@ -182,12 +150,10 @@ export function BatchPaymentDialog({ pendingPurchases, onPaymentSuccess }: Batch
       setSelectedPurchases([])
       onPaymentSuccess?.()
     } catch (error) {
-      console.error('=== ERRO NO PAGAMENTO ===')
-      console.error('Detalhes do erro:', error)
+      console.error('Erro ao registrar pagamentos:', error)
       toast.error("Erro ao registrar pagamentos. Tente novamente.")
     } finally {
       setIsLoading(false)
-      console.log('=== FIM DO PAGAMENTO EM LOTE ===')
     }
   }
 
