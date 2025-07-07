@@ -3,12 +3,6 @@ import type { User, Store, Purchase, Goal, Payment } from "@/lib/types";
 
 // Funções auxiliares
 const handleResponse = async (response: Response) => {
-  console.log(
-    "handleResponse: Status da resposta:",
-    response.status,
-    response.statusText
-  );
-
   if (!response.ok) {
     if (response.status === 401) {
       console.error(
@@ -18,12 +12,8 @@ const handleResponse = async (response: Response) => {
         "\nURL:",
         response.url
       );
-      // Remove o token e estado do localStorage
-      console.log("handleResponse: Removendo token e estado do localStorage");
       localStorage.removeItem("token");
       localStorage.removeItem("app-state");
-      // Força o reload da página para limpar o estado
-      console.log("handleResponse: Redirecionando para página de login");
       window.location.href = "/login";
       throw new Error("Sessão expirada");
     }
@@ -42,14 +32,12 @@ const handleResponse = async (response: Response) => {
 };
 
 const getAuthHeaders = () => {
-  console.log("getAuthHeaders: Obtendo token do localStorage");
   const token = localStorage.getItem("token");
   if (!token) {
     console.error("getAuthHeaders: Token não encontrado no localStorage");
     throw new Error("Token inválido");
   }
 
-  // Obtém o estado da aplicação para pegar o ID do usuário
   const appState = localStorage.getItem("app-state");
   let userId = "";
   if (appState) {
@@ -61,17 +49,11 @@ const getAuthHeaders = () => {
     }
   }
 
-  const headers = {
+  return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
     "x-user-id": userId,
   };
-  console.log("getAuthHeaders: Headers configurados:", {
-    ...headers,
-    Authorization: headers.Authorization.substring(0, 20) + "...", // Mostra apenas parte do token
-    "x-user-id": userId,
-  });
-  return headers;
 };
 
 const verifyAuthToken = async () => {
