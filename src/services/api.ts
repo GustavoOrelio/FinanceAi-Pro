@@ -280,7 +280,7 @@ export const goalService = {
 
 // Serviços de Pagamento
 export const paymentService = {
-  create: async (data: Omit<Payment, "id">) => {
+  create: async (data: Omit<Payment, "id" | "createdAt" | "updatedAt">) => {
     const response = await fetch("/api/payments", {
       method: "POST",
       headers: getAuthHeaders(),
