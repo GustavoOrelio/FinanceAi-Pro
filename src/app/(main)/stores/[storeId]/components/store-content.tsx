@@ -40,31 +40,10 @@ export function StoreContent({ storeId }: StoreContentProps) {
     }))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  console.log('=== ESTADO DAS COMPRAS ===')
-  storePurchases.forEach(purchase => {
-    console.log('Compra:', {
-      id: purchase.id,
-      description: purchase.description,
-      amount: purchase.amount,
-      paidAmount: purchase.paidAmount,
-      remainingAmount: purchase.remainingAmount,
-      status: purchase.status,
-      payments: purchase.payments.length
-    })
-  })
-
   const pendingPurchases = storePurchases.filter(p => p.status === 'pending' || p.status === 'partially_paid')
   const totalSpent = storePurchases.reduce((acc, p) => acc + p.amount, 0)
   const totalPending = storePurchases.reduce((acc, p) => acc + (p.remainingAmount || 0), 0)
   const averagePurchase = storePurchases.length > 0 ? totalSpent / storePurchases.length : 0
-
-  console.log('=== TOTAIS ===')
-  console.log({
-    totalGasto: totalSpent,
-    totalPendente: totalPending,
-    mediaPorCompra: averagePurchase,
-    comprasPendentes: pendingPurchases.length
-  })
 
   const handleRemovePurchase = (purchaseId: string) => {
     removePurchase(purchaseId)
