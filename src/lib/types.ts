@@ -47,7 +47,7 @@ export interface Payment {
   id: string;
   purchaseId: string;
   amount: number;
-  method: string;
+  method: "pix" | "credit" | "debit" | "cash";
   date: Date;
   createdAt: Date;
   updatedAt: Date;
