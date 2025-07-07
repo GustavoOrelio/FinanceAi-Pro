@@ -128,7 +128,7 @@ export function BatchPaymentDialog({ pendingPurchases, onPaymentSuccess }: Batch
         // Determinar quanto será pago nesta compra
         const paymentForThisPurchase = Math.min(remainingPayment, purchase.remainingAmount);
 
-        const payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'> = {
+        const payment = {
           purchaseId: purchase.id,
           amount: paymentForThisPurchase,
           method: data.method,
@@ -141,7 +141,10 @@ export function BatchPaymentDialog({ pendingPurchases, onPaymentSuccess }: Batch
 
       // Registrar todos os pagamentos
       for (const payment of payments) {
-        addPayment(payment);
+        addPayment({
+          ...payment,
+          date: new Date(payment.date)
+        });
       }
 
       toast.success("Pagamentos registrados com sucesso!")
