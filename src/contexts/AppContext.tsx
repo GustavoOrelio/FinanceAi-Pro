@@ -22,7 +22,7 @@ interface AppContextType extends AppState {
   updateGoal: (goalId: string, updates: Partial<Goal>) => Promise<void>;
   removeGoal: (goalId: string) => Promise<void>;
   setMonthlyLimit: (limit: number) => Promise<void>;
-  addPayment: (payment: Omit<Payment, 'id'>) => Promise<void>;
+  addPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   isLoading: boolean;
   isHydrated: boolean;
 }
@@ -357,7 +357,7 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     }
   }, [state.user?.id, setState]);
 
-  const addPayment = useCallback(async (payment: Omit<Payment, 'id'>) => {
+  const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       const newPayment = await paymentService.create(payment);
 
