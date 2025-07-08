@@ -1,22 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 interface UseVoiceRecognitionProps {
   onTranscriptChange?: (transcript: string) => void;
 }
-
-declare global {
-  interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
-  }
-}
-
-const SpeechRecognition =
-  typeof window !== "undefined"
-    ? window.SpeechRecognition || window.webkitSpeechRecognition
-    : null;
 
 export function useVoiceRecognition({
   onTranscriptChange,
@@ -24,93 +13,115 @@ export function useVoiceRecognition({
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [recognition, setRecognition] = useState<any>(null);
+  const [isSupported, setIsSupported] = useState(false);
 
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
+
+  // Verifica suporte inicial
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      // @ts-ignore - O TypeScript não conhece esta API
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "pt-BR";
-        setRecognition(recognition);
-      } else {
-        setError("Reconhecimento de voz não suportado neste navegador");
+    const checkSupport = async () => {
+      try {
+        const supported = !!(
+          navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+        );
+        setIsSupported(supported);
+
+        if (!supported) {
+          console.error("API de mídia não suportada");
+          setError("Reconhecimento de voz não suportado neste navegador");
+          toast.error(
+            "Reconhecimento de voz não suportado neste navegador. Por favor, use um navegador moderno."
+          );
+        }
+      } catch (err) {
+        console.error("Erro ao verificar suporte:", err);
+        setIsSupported(false);
+        setError("Erro ao verificar suporte do navegador");
       }
-    }
+    };
+
+    checkSupport();
   }, []);
 
-  useEffect(() => {
-    if (!recognition) return;
+  const startListening = useCallback(async () => {
+    console.log("Tentando iniciar gravação...");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    recognition.onresult = (event: any) => {
-      const current = event.resultIndex;
-      const transcript = event.results[current][0].transcript;
-      setTranscript(transcript);
-      onTranscriptChange?.(transcript);
-    };
+      // Cria o MediaRecorder
+      mediaRecorder.current = new MediaRecorder(stream);
+      audioChunks.current = [];
 
-    recognition.onerror = (event: any) => {
-      setError(`Erro no reconhecimento de voz: ${event.error}`);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    return () => {
-      recognition.onresult = null;
-      recognition.onerror = null;
-      recognition.onend = null;
-    };
-  }, [recognition, onTranscriptChange]);
-
-  const startListening = useCallback(() => {
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = "pt-BR";
-
-      recognition.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((result: any) => result[0])
-          .map((result: any) => result.transcript)
-          .join("");
-
-        setTranscript(transcript);
-        onTranscriptChange?.(transcript);
+      // Configura os handlers
+      mediaRecorder.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.current.push(event.data);
+        }
       };
 
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error:", event.error);
+      mediaRecorder.current.onstart = () => {
+        console.log("Gravação iniciada");
+        setIsListening(true);
+        setError(null);
+        toast.success("Gravação iniciada");
+      };
+
+      mediaRecorder.current.onstop = async () => {
+        console.log("Gravação finalizada");
         setIsListening(false);
+
+        // Cria um blob com todos os chunks de áudio
+        const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+
+        try {
+          // Envia o áudio para transcrição
+          const formData = new FormData();
+          formData.append("audio", audioBlob);
+
+          const response = await fetch("/api/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error("Erro na transcrição");
+          }
+
+          const { text } = await response.json();
+          console.log("Texto transcrito:", text);
+          setTranscript(text);
+          onTranscriptChange?.(text);
+        } catch (error) {
+          console.error("Erro na transcrição:", error);
+          toast.error("Erro ao processar o áudio. Por favor, tente novamente.");
+        }
+
+        // Limpa os recursos
+        stream.getTracks().forEach((track) => track.stop());
+        audioChunks.current = [];
       };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-      setIsListening(true);
-    } else {
-      console.error("Speech recognition not supported");
+      // Inicia a gravação
+      mediaRecorder.current.start();
+    } catch (error) {
+      console.error("Erro ao iniciar gravação:", error);
+      setError("Erro ao acessar o microfone");
+      toast.error(
+        "Por favor, permita o acesso ao microfone para usar o reconhecimento de voz."
+      );
     }
   }, [onTranscriptChange]);
 
   const stopListening = useCallback(() => {
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.stop();
-      setIsListening(false);
+    console.log("Parando gravação...");
+    if (mediaRecorder.current && mediaRecorder.current.state !== "inactive") {
+      mediaRecorder.current.stop();
     }
   }, []);
 
   const toggleListening = useCallback(() => {
+    console.log("Toggle gravação, estado atual:", isListening);
     if (isListening) {
       stopListening();
     } else {
@@ -118,13 +129,24 @@ export function useVoiceRecognition({
     }
   }, [isListening, startListening, stopListening]);
 
+  const resetTranscript = useCallback(() => {
+    console.log("Resetando transcript");
+    setTranscript("");
+  }, []);
+
+  // Cleanup ao desmontar
   useEffect(() => {
     return () => {
-      if (isListening) {
-        stopListening();
+      if (mediaRecorder.current && mediaRecorder.current.state !== "inactive") {
+        mediaRecorder.current.stop();
+        if (mediaRecorder.current.stream) {
+          mediaRecorder.current.stream
+            .getTracks()
+            .forEach((track) => track.stop());
+        }
       }
     };
-  }, [isListening, stopListening]);
+  }, []);
 
   return {
     isListening,
@@ -132,6 +154,8 @@ export function useVoiceRecognition({
     startListening,
     stopListening,
     toggleListening,
+    resetTranscript,
     error,
+    isSupported,
   };
 }
