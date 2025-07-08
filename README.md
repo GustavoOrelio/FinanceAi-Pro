@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FinanceAI Pro
 
-## Getting Started
+Um assistente financeiro pessoal inteligente que ajuda você a gerenciar suas finanças de forma eficiente.
 
-First, run the development server:
+## Funcionalidades
+
+### Gestão Financeira
+
+- Controle de gastos e receitas
+- Categorização de transações
+- Definição de limites mensais
+- Acompanhamento de metas financeiras
+- Análise de gastos por categoria
+- Gestão de lojas e estabelecimentos
+
+### Inteligência Artificial
+
+- **Assistente AI Avançado**
+
+  - Análise financeira personalizada
+  - Recomendações baseadas no contexto
+  - Educação financeira
+  - Planejamento financeiro
+  - Suporte via chat com linguagem natural
+  - Reconhecimento de voz para comandos
+
+- **Insights e Previsões**
+  - Previsão de gastos futuros por categoria
+  - Análise de padrões de consumo
+  - Recomendações personalizadas
+  - Identificação de tendências
+  - Alertas inteligentes
+  - Sugestões de otimização
+
+### Ferramentas
+
+- Scanner de preços com OCR
+- Rastreador de humor financeiro
+- Sistema de notificações
+- Backup automático
+- Modo offline
+- Suporte a PWA
+
+## Tecnologias
+
+- Next.js 14 (App Router)
+- TypeScript
+- Prisma
+- PostgreSQL
+- TailwindCSS
+- Google Gemini AI
+- OpenAI Whisper
+
+## Configuração
+
+1. Clone o repositório
+
+```bash
+git clone https://github.com/seu-usuario/financeai-pro.git
+cd financeai-pro
+```
+
+2. Instale as dependências
+
+```bash
+npm install
+```
+
+3. Configure as variáveis de ambiente
+
+```bash
+cp .env.example .env
+```
+
+Edite o arquivo `.env` com suas configurações:
+
+```env
+DATABASE_URL="postgresql://..."
+GEMINI_API_KEY="sua-chave-api"
+OPENAI_API_KEY="sua-chave-api"
+JWT_SECRET="seu-segredo"
+```
+
+4. Execute as migrações do banco de dados
+
+```bash
+npx prisma migrate dev
+```
+
+5. Inicie o servidor de desenvolvimento
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Contribuição
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Contribuições são bem-vindas! Por favor, leia o arquivo [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes sobre nosso código de conduta e o processo para enviar pull requests.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Licença
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE.md](LICENSE.md) para detalhes.
