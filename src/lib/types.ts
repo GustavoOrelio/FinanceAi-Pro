@@ -92,3 +92,39 @@ export interface AuthResponse {
   user: User;
   token: string;
 }
+
+export interface AIMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AIContext {
+  monthlySpending: number;
+  monthlyLimit?: number;
+  goals?: Array<{
+    title: string;
+    progress: number;
+  }>;
+  recentTransactions?: Array<{
+    description: string;
+    amount: number;
+    date: string;
+  }>;
+}
+
+export interface AIRequest {
+  message: string;
+  context: AIContext;
+  history: AIMessage[];
+}
+
+export interface AIResponse {
+  response: string;
+}
+
+export interface Message {
+  id: string;
+  type: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}

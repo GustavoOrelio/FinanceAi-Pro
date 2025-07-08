@@ -5,7 +5,6 @@ import "./globals.css";
 import { Toaster } from 'sonner';
 import { InstallPrompt } from '@/components/InstallPrompt';
 import { Inter } from 'next/font/google';
-import type { AppState } from '@/lib/types';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,67 +47,6 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-const initialData: AppState = {
-  user: {
-    id: 'user-1',
-    name: 'Usuário Teste',
-    email: 'usuario@exemplo.com',
-    xp: 0,
-  },
-  stores: [
-    {
-      id: 'store-1',
-      name: 'Quitutes da Celinha',
-      category: 'Padaria',
-    },
-  ],
-  purchases: [
-    {
-      id: 'purchase-1',
-      storeId: 'store-1',
-      userId: 'user-1',
-      amount: 15.00,
-      paidAmount: 0,
-      remainingAmount: 15.00,
-      date: new Date().toISOString(),
-      category: 'food',
-      description: 'Energetico',
-      status: 'pending' as const,
-      payments: [],
-    },
-    {
-      id: 'purchase-2',
-      storeId: 'store-1',
-      userId: 'user-1',
-      amount: 25.00,
-      paidAmount: 0,
-      remainingAmount: 25.00,
-      date: new Date().toISOString(),
-      category: 'food',
-      description: 'Energetico 1. Pastel',
-      status: 'pending' as const,
-      payments: [],
-    },
-    {
-      id: 'purchase-3',
-      storeId: 'store-1',
-      userId: 'user-1',
-      amount: 50.00,
-      paidAmount: 0,
-      remainingAmount: 50.00,
-      date: new Date().toISOString(),
-      category: 'food',
-      description: '2 Pasteis 4 Energeticos',
-      status: 'pending' as const,
-      payments: [],
-    },
-  ],
-  goals: [],
-  darkMode: false,
-  monthlyLimit: 1000,
-  isAuthenticated: true,
-};
-
 export default function RootLayout({
   children,
 }: {
@@ -118,7 +56,7 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head />
       <body className="min-h-screen bg-background font-sans antialiased">
-        <AppProvider initialData={initialData}>
+        <AppProvider>
           {children}
           <Toaster richColors closeButton position="top-right" />
           <InstallPrompt />

@@ -28,10 +28,17 @@ const handleResponse = async (response: Response) => {
     );
     throw new Error(error.message || "Erro na requisição");
   }
+
+  // Verifica se há um novo token no header
+  const newToken = response.headers.get("x-new-token");
+  if (newToken) {
+    localStorage.setItem("token", newToken);
+  }
+
   return response.json();
 };
 
-const getAuthHeaders = () => {
+export const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
   if (!token) {
     console.error("getAuthHeaders: Token não encontrado no localStorage");
@@ -66,6 +73,13 @@ const verifyAuthToken = async () => {
     localStorage.removeItem("app-state");
     throw new Error("Sessão expirada");
   }
+
+  // Verifica se há um novo token no header
+  const newToken = response.headers.get("x-new-token");
+  if (newToken) {
+    localStorage.setItem("token", newToken);
+  }
+
   console.log("verifyAuthToken: Token válido");
   return response.json();
 };
@@ -292,6 +306,18 @@ export const paymentService = {
   getByPurchase: async (purchaseId: string) => {
     const response = await fetch(`/api/payments?purchaseId=${purchaseId}`, {
       headers: getAuthHeaders(),
+    });
+    return handleResponse(response);
+  },
+};
+
+// Serviços de IA
+export const aiService = {
+  chat: async (data: { message: string; context: any; history: any[] }) => {
+    const response = await fetch("/api/ai/chat", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
     });
     return handleResponse(response);
   },
