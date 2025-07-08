@@ -20,6 +20,7 @@ model User {
   email         String     @unique
   password      String
   xp            Int        @default(0)
+  monthlyLimit  Float?
   purchases     Purchase[]
   goals         Goal[]
   createdStores Store[]    @relation("CreatedBy")
