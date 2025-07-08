@@ -27,12 +27,15 @@ interface AppContextType extends AppState {
   isHydrated: boolean;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+const AppContext = createContext<AppContextType | null>(null);
 
-interface AppProviderProps {
-  children: React.ReactNode;
-  initialData?: Partial<AppState>;
-}
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
+  return context;
+};
 
 const initialState: AppState = {
   user: null,
@@ -44,10 +47,10 @@ const initialState: AppState = {
   isAuthenticated: false,
 };
 
-export function AppProvider({ children, initialData }: AppProviderProps) {
+export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useLocalStorage<AppState>(
     'app-state',
-    { ...initialState, ...initialData }
+    initialState
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -72,13 +75,33 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     }
   }, [state.darkMode]);
 
-  // Efeito para verificar token no localStorage
+  // Efeito para verificar token no localStorage e validar periodicamente
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token && state.isAuthenticated) {
-      logout();
-    }
-  }, []);
+    const validateToken = async () => {
+      const token = localStorage.getItem('token');
+      if (!token && state.isAuthenticated) {
+        logout();
+        return;
+      }
+
+      if (token && state.isAuthenticated) {
+        try {
+          await authService.verifyToken();
+        } catch (error) {
+          console.error('validateToken: Erro na verificação do token:', error);
+          logout();
+        }
+      }
+    };
+
+    // Valida o token inicialmente
+    validateToken();
+
+    // Configura um intervalo para validar o token periodicamente (a cada 5 minutos)
+    const interval = setInterval(validateToken, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [state.isAuthenticated]);
 
   // Efeito para carregar dados iniciais
   useEffect(() => {
@@ -144,9 +167,7 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     try {
       const { user, token } = await authService.login(email, password);
       localStorage.setItem('token', token);
-      await new Promise(resolve => setTimeout(resolve, 500));
       updateState({ user, isAuthenticated: true });
-      await new Promise(resolve => setTimeout(resolve, 100));
       await loadInitialData();
       toast.success('Login realizado com sucesso');
     } catch (error) {
@@ -159,22 +180,9 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
   const register = useCallback(async (data: { name: string; email: string; password: string }) => {
     try {
       const { user, token } = await authService.register(data);
-
-      // Primeiro salvamos o token
       localStorage.setItem('token', token);
-
-      // Aumentamos o delay para garantir que o token foi salvo
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Depois atualizamos o estado
       updateState({ user, isAuthenticated: true });
-
-      // Outro pequeno delay antes de carregar os dados
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Por fim carregamos os dados
       await loadInitialData();
-
       toast.success('Cadastro realizado com sucesso');
     } catch (error) {
       console.error('Erro ao fazer cadastro:', error);
@@ -411,12 +419,4 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
       {children}
     </AppContext.Provider>
   );
-}
-
-export function useApp() {
-  const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
 } 
