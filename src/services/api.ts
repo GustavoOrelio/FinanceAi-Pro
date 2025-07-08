@@ -38,28 +38,11 @@ const handleResponse = async (response: Response) => {
   return response.json();
 };
 
-export const getAuthHeaders = () => {
+const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
-  if (!token) {
-    console.error("getAuthHeaders: Token não encontrado no localStorage");
-    throw new Error("Token inválido");
-  }
-
-  const appState = localStorage.getItem("app-state");
-  let userId = "";
-  if (appState) {
-    try {
-      const state = JSON.parse(appState);
-      userId = state.user?.id || "";
-    } catch (error) {
-      console.error("getAuthHeaders: Erro ao parsear app-state:", error);
-    }
-  }
-
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-    "x-user-id": userId,
+    Authorization: token ? `Bearer ${token}` : "",
   };
 };
 
