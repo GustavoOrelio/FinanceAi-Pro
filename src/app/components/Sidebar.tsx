@@ -24,6 +24,7 @@ import {
   Settings,
   LogOut,
   Menu,
+  FileBarChart,
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -57,6 +58,7 @@ function SidebarContent({ onNavItemClick }: { onNavItemClick?: () => void }) {
   const navItems = useMemo(() => [
     { href: '/dashboard', icon: <Home size={20} />, label: 'Dashboard' },
     { href: '/stores', icon: <Store size={20} />, label: 'Lojas' },
+    { href: '/reports', icon: <FileBarChart size={20} />, label: 'Relatórios' },
     { href: '/analytics', icon: <LineChart size={20} />, label: 'Análises' },
     { href: '/goals', icon: <Target size={20} />, label: 'Metas' },
     { href: '/ai-assistant', icon: <Bot size={20} />, label: 'Assistente AI' },
