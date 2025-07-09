@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/contexts/AppContext';
+import { authService } from '@/services/api';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -79,7 +80,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // TODO: Implementar recuperação de senha
+      await authService.forgotPassword(resetEmail);
       setResetPasswordOpen(false);
       toast.success('Se o email existir em nossa base, você receberá as instruções de recuperação.');
     } catch (error) {

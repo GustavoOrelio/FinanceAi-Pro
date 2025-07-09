@@ -102,6 +102,24 @@ export const authService = {
   },
 
   verifyToken: verifyAuthToken,
+
+  forgotPassword: async (email: string) => {
+    const response = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    return handleResponse(response);
+  },
+
+  resetPassword: async (token: string, password: string) => {
+    const response = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    });
+    return handleResponse(response);
+  },
 };
 
 // Serviços de Usuário
