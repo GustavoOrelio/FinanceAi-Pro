@@ -71,7 +71,7 @@ Este documento contém sugestões de melhorias e novas funcionalidades para o Fi
 - Criar versão PWA do aplicativo
 - Melhorar a responsividade em dispositivos móveis
 
-## 11. Inteligência Artificial
+## 11. Inteligência Artificial - Implementado
 
 - Melhorar o assistente AI existente
 - Adicionar previsões de gastos baseadas em IA
