@@ -7,8 +7,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Ignora rotas de autenticação
-  if (request.url.includes("/api/auth/")) {
+  // Ignora rotas de autenticação e registro
+  if (
+    request.url.includes("/api/auth/") ||
+    (request.url.includes("/api/users") && request.method === "POST")
+  ) {
     return NextResponse.next();
   }
 
