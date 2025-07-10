@@ -66,6 +66,8 @@
     "@types/pdfkit": "^0.14.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "dotenv": "^17.2.0",
+    "node-fetch": "^3.3.2",
     "prisma": "^6.11.0",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.4",
