@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { Message } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -22,14 +23,15 @@ export default function AIAssistant() {
       setInput(newTranscript);
     }
   });
-  const { user, isAuthenticated, isHydrated, purchases, goals } = useApp();
+  const { user, isAuthenticated } = useAuth();
+  const { purchases, goals } = useData();
   const router = useRouter();
 
   useEffect(() => {
-    if (isHydrated && !isAuthenticated) {
+    if (!isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, isHydrated, router]);
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     if (transcript) {
@@ -37,55 +39,13 @@ export default function AIAssistant() {
     }
   }, [transcript]);
 
-  // Prepara o contexto financeiro para o assistente
-  const getFinancialContext = () => {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
-
-    // Calcula gastos do mês atual
-    const currentMonthPurchases = purchases.filter((purchase) => {
-      const purchaseDate = new Date(purchase.date);
-      return purchaseDate.getMonth() === currentMonth &&
-        purchaseDate.getFullYear() === currentYear;
-    });
-
-    const monthlySpending = currentMonthPurchases.reduce(
-      (total, purchase) => total + purchase.amount,
-      0
-    );
-
-    // Pega as transações mais recentes
-    const recentTransactions = purchases
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5)
-      .map((purchase) => ({
-        description: purchase.description,
-        amount: purchase.amount,
-        date: purchase.date
-      }));
-
-    // Formata as metas
-    const formattedGoals = goals.map((goal) => ({
-      title: goal.title,
-      progress: Math.round((goal.currentAmount / goal.targetAmount) * 100)
-    }));
-
-    return {
-      monthlySpending,
-      monthlyLimit: user?.monthlyLimit,
-      goals: formattedGoals,
-      recentTransactions
-    };
-  };
-
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSendMessage = async () => {
+    if (!input.trim() || isProcessing) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: input,
+      content: input.trim(),
       timestamp: new Date(),
     };
 
@@ -94,52 +54,38 @@ export default function AIAssistant() {
     setIsProcessing(true);
 
     try {
-      const context = getFinancialContext();
-      const data = await aiService.chat({
-        message: input,
-        context,
-        history: messages.map(msg => ({
-          role: msg.type,
-          content: msg.content
-        }))
+      const response = await aiService.chat({
+        message: userMessage.content,
+        context: {
+          user,
+          purchases,
+          goals,
+        },
+        history: messages,
       });
 
-      const assistantMessage: Message = {
+      const aiMessage: Message = {
         id: Date.now().toString(),
         type: 'assistant',
-        content: data.response,
+        content: response.message,
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error('Erro:', error);
-      toast.error('Erro ao processar a mensagem. Por favor, tente novamente.');
-      // Adiciona mensagem de erro
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        type: 'assistant',
-        content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      console.error('Erro ao processar mensagem:', error);
+      toast.error('Erro ao processar mensagem. Tente novamente.');
     } finally {
       setIsProcessing(false);
-      resetTranscript();
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSendMessage();
     }
   };
-
-  // Não renderiza nada enquanto verifica autenticação ou hidratação
-  if (!isHydrated || !isAuthenticated) {
-    return null;
-  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-4xl mx-auto">
@@ -178,40 +124,35 @@ export default function AIAssistant() {
         </CardContent>
       </Card>
 
-      <div className="px-4 pb-6">
-        <div className="flex items-center gap-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex gap-2">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Digite sua mensagem..."
+          disabled={isProcessing}
+        />
+        {isSupported && (
           <Button
             variant="outline"
             size="icon"
-            onClick={toggleListening}
-            disabled={isProcessing || !isSupported}
-            className={`shrink-0 transition-colors ${isListening ? 'bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800' : ''}`}
-            title={!isSupported ? "Reconhecimento de voz não suportado neste navegador" : "Clique para falar"}
+            onClick={() => {
+              toggleListening();
+              if (!isListening) {
+                setInput('');
+              }
+            }}
+            className={isListening ? 'bg-red-100 hover:bg-red-200' : ''}
           >
-            {isListening ? (
-              <StopCircle className="h-5 w-5 text-red-500" />
-            ) : (
-              <Mic className={`h-5 w-5 ${!isSupported ? 'text-muted-foreground' : ''}`} />
-            )}
+            {isListening ? <StopCircle className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </Button>
-
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Digite sua mensagem..."
-            disabled={isProcessing || isListening}
-            className="flex-1"
-          />
-
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || isProcessing || isListening}
-            className="shrink-0"
-          >
-            <Send className="h-5 w-5" />
-          </Button>
-        </div>
+        )}
+        <Button
+          onClick={handleSendMessage}
+          disabled={!input.trim() || isProcessing}
+        >
+          {isProcessing ? 'Processando...' : <Send className="h-4 w-4" />}
+        </Button>
       </div>
     </div>
   );
