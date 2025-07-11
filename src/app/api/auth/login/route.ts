@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateUser, generateToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { headers } from "next/headers";
 
 async function checkSuspiciousActivity(ipAddress: string): Promise<boolean> {
   // Verifica tentativas de login falhas nos últimos 10 minutos
@@ -42,14 +41,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { email, password } = body;
-    const headersList = headers();
 
-    // Captura IP e User-Agent
+    // Captura IP e User-Agent do objeto Request
+    const forwardedFor = request.headers.get("x-forwarded-for");
     const ipAddress =
-      headersList.get("x-forwarded-for") ||
-      headersList.get("x-real-ip") ||
+      forwardedFor?.split(",")[0] ||
+      request.headers.get("x-real-ip") ||
       "unknown";
-    const userAgent = headersList.get("user-agent") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
 
     if (!email || !password) {
       return NextResponse.json(

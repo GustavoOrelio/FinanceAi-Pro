@@ -3,7 +3,13 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./prisma";
 import type { NextRequest } from "next/server";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    "FATAL: A variável de ambiente JWT_SECRET não está definida. Por favor, configure-a antes de iniciar a aplicação."
+  );
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export interface AuthUser {
   id: string;
