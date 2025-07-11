@@ -1,19 +1,16 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { useApp } from '@/contexts/AppContext';
 import { useMemo } from 'react';
-
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
-
 import {
   Home,
   Store,
+  FileBarChart,
   LineChart,
   Target,
   Bot,
@@ -24,28 +21,30 @@ import {
   Settings,
   LogOut,
   Menu,
-  FileBarChart,
 } from 'lucide-react';
+import { useApp } from '@/contexts/AppContext';
 
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
   label: string;
-  isActive: boolean;
+  isActive?: boolean;
   onClick?: () => void;
 }
 
 function NavItem({ href, icon, label, isActive, onClick }: NavItemProps) {
   return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent ${isActive ? 'bg-accent' : ''
-        }`}
+    <Button
+      variant={isActive ? "secondary" : "ghost"}
+      className="w-full justify-start gap-3"
+      asChild
       onClick={onClick}
     >
-      {icon}
-      {label}
-    </Link>
+      <a href={href}>
+        {icon}
+        {label}
+      </a>
+    </Button>
   );
 }
 
@@ -53,7 +52,13 @@ function SidebarContent({ onNavItemClick }: { onNavItemClick?: () => void }) {
   const pathname = usePathname();
   const { user, logout, isHydrated } = useApp();
 
-  if (!user || !isHydrated) return null;
+  if (!user || !isHydrated) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        {/* Skeleton loader placeholder */}
+      </div>
+    );
+  }
 
   const navItems = useMemo(() => [
     { href: '/dashboard', icon: <Home size={20} />, label: 'Dashboard' },
