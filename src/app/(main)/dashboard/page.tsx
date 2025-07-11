@@ -11,14 +11,22 @@ import { Store, ArrowUpCircle, ArrowDownCircle, Target, TrendingUp } from 'lucid
 import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
-  const { user, purchases, stores, monthlyLimit } = useApp();
+  const { user, purchases, stores, monthlyLimit, isLoading } = useApp();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Cálculos financeiros
+  if (isLoading || !Array.isArray(purchases)) {
+    return (
+      <div className="space-y-8">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p>Carregando dados...</p>
+      </div>
+    );
+  }
+
   const currentMonth = new Date().getMonth();
   const currentMonthPurchases = purchases.filter(
     (p) => new Date(p.date).getMonth() === currentMonth
@@ -32,7 +40,6 @@ export default function DashboardPage() {
   const remainingBudget = monthlyLimit - totalSpentThisMonth;
   const spentPercentage = monthlyLimit > 0 ? (totalSpentThisMonth / monthlyLimit) * 100 : 0;
 
-  // Calcula o total economizado (diferença entre limite e gastos)
   const totalSaved = purchases.reduce((total, purchase) => {
     const purchaseMonth = new Date(purchase.date).getMonth();
     const monthLimit = monthlyLimit || 0;
@@ -42,7 +49,6 @@ export default function DashboardPage() {
     return total + Math.max(0, monthLimit - monthSpent);
   }, 0);
 
-  // Top 5 lojas mais visitadas
   const storeVisits = purchases.reduce((acc, purchase) => {
     if (purchase.storeId) {
       acc[purchase.storeId] = (acc[purchase.storeId] || 0) + 1;
@@ -78,7 +84,6 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Cards de Resumo */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -151,7 +156,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Lista de Lojas Mais Visitadas */}
       <Card>
         <CardHeader>
           <CardTitle>Lojas Mais Visitadas</CardTitle>
