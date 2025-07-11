@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { authService } from '@/services/api';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,8 @@ import { toast } from 'sonner';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register } = useApp();
+  const { login } = useAuth();
+  const { loadInitialData } = useData();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
@@ -39,13 +41,21 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!loginData.email || !loginData.password) {
+      toast.error('Por favor, preencha todos os campos');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await login(loginData.email, loginData.password);
+      const response = await authService.login(loginData.email, loginData.password);
+      await login(response.user, response.token);
+      await loadInitialData();
       router.push('/dashboard');
     } catch (error) {
       console.error('Erro ao fazer login:', error);
+      toast.error('Email ou senha inválidos');
     } finally {
       setIsLoading(false);
     }
@@ -53,36 +63,53 @@ export default function LoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!registerData.name || !registerData.email || !registerData.password) {
+      toast.error('Por favor, preencha todos os campos');
+      return;
+    }
+
+    if (registerData.password !== registerData.confirmPassword) {
+      toast.error('As senhas não coincidem');
+      return;
+    }
+
+    if (registerData.password.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      if (registerData.password !== registerData.confirmPassword) {
-        toast.error('As senhas não coincidem');
-        return;
-      }
-
-      await register({
+      const response = await authService.register({
         name: registerData.name,
         email: registerData.email,
-        password: registerData.password,
+        password: registerData.password
       });
-
+      await login(response.user, response.token);
+      await loadInitialData();
       router.push('/dashboard');
     } catch (error) {
-      console.error('Erro ao cadastrar:', error);
+      console.error('Erro ao criar conta:', error);
+      toast.error('Erro ao criar conta. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!resetEmail) {
+      toast.error('Por favor, insira seu email');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       await authService.forgotPassword(resetEmail);
+      toast.success('Email de recuperação enviado com sucesso');
       setResetPasswordOpen(false);
-      toast.success('Se o email existir em nossa base, você receberá as instruções de recuperação.');
     } catch (error) {
       console.error('Erro ao solicitar recuperação de senha:', error);
       toast.error('Erro ao solicitar recuperação de senha');
@@ -92,135 +119,170 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-2xl text-center">FinanceAI Pro</CardTitle>
-        <CardDescription className="text-center">
-          Gerencie suas finanças de forma inteligente
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Entrar</TabsTrigger>
-            <TabsTrigger value="register">Cadastrar</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="login">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="login-email">Email</Label>
-                <Input
-                  id="login-email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={loginData.email}
-                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="login-password">Senha</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  value={loginData.password}
-                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Entrando...' : 'Entrar'}
-              </Button>
-            </form>
-            <div className="mt-4 text-center">
-              <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="link" className="text-sm">
-                    Esqueceu sua senha?
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <form onSubmit={handleResetPassword}>
-                    <DialogHeader>
-                      <DialogTitle>Recuperar senha</DialogTitle>
-                      <DialogDescription>
-                        Digite seu email para receber as instruções de recuperação.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                      <Label htmlFor="reset-email">Email</Label>
+    <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
+      <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
+        <div className="absolute inset-0 bg-zinc-900" />
+        <div className="relative z-20 flex items-center text-lg font-medium">
+          <h1>FinanceAI Pro</h1>
+        </div>
+        <div className="relative z-20 mt-auto">
+          <blockquote className="space-y-2">
+            <p className="text-lg">
+              "Controle suas finanças com inteligência artificial"
+            </p>
+          </blockquote>
+        </div>
+      </div>
+      <div className="lg:p-8">
+        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+          <Tabs defaultValue={activeTab} className="w-full" onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="register">Cadastro</TabsTrigger>
+            </TabsList>
+            <TabsContent value="login">
+              <Card>
+                <form onSubmit={handleLogin}>
+                  <CardHeader>
+                    <CardTitle>Login</CardTitle>
+                    <CardDescription>
+                      Entre com sua conta para continuar
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
                       <Input
-                        id="reset-email"
+                        id="email"
                         type="email"
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                        className="mt-2"
+                        placeholder="seu@email.com"
+                        value={loginData.email}
+                        onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                         required
                       />
                     </div>
-                    <DialogFooter>
-                      <Button type="submit" disabled={isLoading}>
-                        {isLoading ? 'Enviando...' : 'Enviar'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="register">
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="register-name">Nome</Label>
-                <Input
-                  id="register-name"
-                  type="text"
-                  placeholder="Seu nome"
-                  value={registerData.name}
-                  onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-email">Email</Label>
-                <Input
-                  id="register-email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={registerData.email}
-                  onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-password">Senha</Label>
-                <Input
-                  id="register-password"
-                  type="password"
-                  value={registerData.password}
-                  onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-confirm-password">Confirmar Senha</Label>
-                <Input
-                  id="register-confirm-password"
-                  type="password"
-                  value={registerData.confirmPassword}
-                  onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Cadastrando...' : 'Cadastrar'}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Senha</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={loginData.password}
+                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col space-y-2">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Entrando...' : 'Entrar'}
+                    </Button>
+                    <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="link" className="px-0">
+                          Esqueceu sua senha?
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <form onSubmit={handleForgotPassword}>
+                          <DialogHeader>
+                            <DialogTitle>Recuperar senha</DialogTitle>
+                            <DialogDescription>
+                              Digite seu email para receber instruções de recuperação
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <Label htmlFor="reset-email">Email</Label>
+                            <Input
+                              id="reset-email"
+                              type="email"
+                              value={resetEmail}
+                              onChange={(e) => setResetEmail(e.target.value)}
+                              className="mt-2"
+                              placeholder="seu@email.com"
+                              required
+                            />
+                          </div>
+                          <DialogFooter>
+                            <Button type="submit" disabled={isLoading}>
+                              {isLoading ? 'Enviando...' : 'Enviar'}
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </CardFooter>
+                </form>
+              </Card>
+            </TabsContent>
+            <TabsContent value="register">
+              <Card>
+                <form onSubmit={handleRegister}>
+                  <CardHeader>
+                    <CardTitle>Criar conta</CardTitle>
+                    <CardDescription>
+                      Crie sua conta para começar
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nome</Label>
+                      <Input
+                        id="name"
+                        value={registerData.name}
+                        onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email">Email</Label>
+                      <Input
+                        id="register-email"
+                        type="email"
+                        value={registerData.email}
+                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-password">Senha</Label>
+                      <Input
+                        id="register-password"
+                        type="password"
+                        value={registerData.password}
+                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirmar senha</Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        value={registerData.confirmPassword}
+                        onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Criando conta...' : 'Criar conta'}
+                    </Button>
+                  </CardFooter>
+                </form>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </div>
   );
 } 

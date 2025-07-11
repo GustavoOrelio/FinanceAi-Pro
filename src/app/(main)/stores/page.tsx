@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useApp } from '@/contexts/AppContext';
+import { useData } from '@/contexts/DataContext';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Store } from '@/app/components/Store';
+import type { Store as StoreType } from '@/lib/types';
 
 export default function StoresPage() {
-  const { stores, addStore } = useApp();
+  const { stores, addStore } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddingStore, setIsAddingStore] = useState(false);
   const [newStore, setNewStore] = useState({
@@ -27,9 +28,12 @@ export default function StoresPage() {
 
   const handleAddStore = () => {
     if (newStore.name && newStore.category) {
+      const now = new Date();
       addStore({
         id: Date.now().toString(),
         ...newStore,
+        createdAt: now,
+        updatedAt: now,
       });
       setNewStore({ name: '', category: '' });
       setIsAddingStore(false);
@@ -69,11 +73,11 @@ export default function StoresPage() {
       <Dialog open={isAddingStore} onOpenChange={setIsAddingStore}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Adicionar Nova Loja</DialogTitle>
+            <DialogTitle>Nova Loja</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome da Loja</Label>
+              <Label htmlFor="name">Nome</Label>
               <Input
                 id="name"
                 value={newStore.name}
@@ -91,16 +95,20 @@ export default function StoresPage() {
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="padaria">Padaria</SelectItem>
-                  <SelectItem value="mercado">Mercado</SelectItem>
-                  <SelectItem value="farmacia">Farmácia</SelectItem>
+                  <SelectItem value="supermercado">Supermercado</SelectItem>
                   <SelectItem value="restaurante">Restaurante</SelectItem>
+                  <SelectItem value="farmacia">Farmácia</SelectItem>
                   <SelectItem value="vestuario">Vestuário</SelectItem>
+                  <SelectItem value="servicos">Serviços</SelectItem>
                   <SelectItem value="outros">Outros</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full" onClick={handleAddStore} disabled={!newStore.name || !newStore.category}>
+            <Button
+              className="w-full"
+              onClick={handleAddStore}
+              disabled={!newStore.name || !newStore.category}
+            >
               Adicionar Loja
             </Button>
           </div>

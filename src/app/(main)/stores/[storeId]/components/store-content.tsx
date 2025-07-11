@@ -1,6 +1,6 @@
 'use client'
 
-import { useApp } from "@/contexts/AppContext"
+import { useData } from "@/contexts/DataContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { PurchaseForm } from "./purchase-form"
@@ -27,7 +27,7 @@ interface StoreContentProps {
 }
 
 export function StoreContent({ storeId }: StoreContentProps) {
-  const { stores, purchases, removePurchase } = useApp()
+  const { stores, purchases, removePurchase } = useData()
 
   const store = stores.find(s => s.id === storeId)
   if (!store) return <div>Loja não encontrada</div>
@@ -51,108 +51,103 @@ export function StoreContent({ storeId }: StoreContentProps) {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">{store.name}</h2>
-        {store.description && (
-          <p className="text-muted-foreground">{store.description}</p>
-        )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">{store.name}</h1>
+          <p className="text-muted-foreground">
+            {store.category.charAt(0).toUpperCase() + store.category.slice(1)}
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Gasto</CardTitle>
+          <CardHeader>
+            <CardTitle>Total Gasto</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalSpent)}</div>
+            <p className="text-2xl font-bold">{formatCurrency(totalSpent)}</p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendente</CardTitle>
+          <CardHeader>
+            <CardTitle>Pendente</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalPending)}</div>
+            <p className="text-2xl font-bold">{formatCurrency(totalPending)}</p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Média por Compra</CardTitle>
+          <CardHeader>
+            <CardTitle>Média por Compra</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(averagePurchase)}</div>
+            <p className="text-2xl font-bold">{formatCurrency(averagePurchase)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Total de Compras</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{storePurchases.length}</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="history" className="w-full">
+      <Tabs defaultValue="purchases">
         <TabsList>
-          <TabsTrigger value="history">Histórico</TabsTrigger>
-          <TabsTrigger value="new">Nova Compra</TabsTrigger>
+          <TabsTrigger value="purchases">Compras</TabsTrigger>
+          <TabsTrigger value="pending">Pendentes</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new">
-          <Card>
-            <CardHeader>
-              <CardTitle>Nova Compra</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PurchaseForm storeId={storeId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <TabsContent value="purchases">
+          <div className="space-y-4">
+            <PurchaseForm storeId={storeId} />
 
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Compras</CardTitle>
-            </CardHeader>
-            <CardContent>
+            {storePurchases.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  Nenhuma compra registrada
+                </CardContent>
+              </Card>
+            ) : (
               <div className="space-y-4">
-                {pendingPurchases.length > 1 && (
-                  <BatchPaymentDialog
-                    pendingPurchases={pendingPurchases.map(p => ({
-                      id: p.id,
-                      description: p.description,
-                      remainingAmount: p.remainingAmount
-                    }))}
-                  />
-                )}
-
-                {storePurchases.length === 0 ? (
-                  <p className="text-muted-foreground">Nenhuma compra registrada</p>
-                ) : (
-                  storePurchases.map(purchase => (
-                    <Card key={purchase.id}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <p className="font-medium">{purchase.description}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(purchase.date).toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                          <div className="flex items-start gap-4">
-                            <div className="text-right">
-                              <p className="font-medium">{formatCurrency(purchase.amount)}</p>
-                              <p className={`text-sm ${purchase.status === 'paid'
-                                ? 'text-green-600'
-                                : purchase.status === 'partially_paid'
-                                  ? 'text-blue-600'
-                                  : 'text-yellow-600'
-                                }`}>
-                                {purchase.status === 'paid'
-                                  ? 'Pago'
-                                  : purchase.status === 'partially_paid'
-                                    ? `Parcialmente Pago - Restante: ${formatCurrency(purchase.remainingAmount)}`
-                                    : `Pendente: ${formatCurrency(purchase.remainingAmount)}`
-                                }
+                {storePurchases.map((purchase) => (
+                  <Card key={purchase.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {purchase.description || "Sem descrição"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(purchase.date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-medium">{formatCurrency(purchase.amount)}</p>
+                            {purchase.status !== 'paid' && (
+                              <p className="text-sm text-muted-foreground">
+                                Restante: {formatCurrency(purchase.remainingAmount || 0)}
                               </p>
-                            </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {purchase.status !== 'paid' && (
+                              <PaymentDialog
+                                purchaseId={purchase.id}
+                                remainingAmount={purchase.remainingAmount || 0}
+                              />
+                            )}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button variant="ghost" size="icon">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
@@ -165,7 +160,9 @@ export function StoreContent({ storeId }: StoreContentProps) {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleRemovePurchase(purchase.id)}>
+                                  <AlertDialogAction
+                                    onClick={() => handleRemovePurchase(purchase.id)}
+                                  >
                                     Remover
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -173,37 +170,68 @@ export function StoreContent({ storeId }: StoreContentProps) {
                             </AlertDialog>
                           </div>
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
 
-                        {purchase.payments.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            <p className="text-sm font-medium">Pagamentos:</p>
-                            {purchase.payments.map(payment => (
-                              <div key={payment.id} className="flex items-center justify-between text-sm">
-                                <div className="space-x-2">
-                                  <span>{new Date(payment.date).toLocaleDateString('pt-BR')}</span>
-                                  <span className="uppercase">{payment.method}</span>
-                                </div>
-                                <span>{formatCurrency(payment.amount)}</span>
-                              </div>
-                            ))}
+        <TabsContent value="pending">
+          <div className="space-y-4">
+            {pendingPurchases.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  Nenhuma compra pendente
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div className="flex justify-end">
+                  <BatchPaymentDialog
+                    pendingPurchases={pendingPurchases.map(p => ({
+                      id: p.id,
+                      description: p.description || "Sem descrição",
+                      remainingAmount: p.remainingAmount || 0
+                    }))}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  {pendingPurchases.map((purchase) => (
+                    <Card key={purchase.id}>
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium">
+                              {purchase.description || "Sem descrição"}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(purchase.date).toLocaleDateString()}
+                            </p>
                           </div>
-                        )}
-
-                        {(purchase.status === 'pending' || purchase.status === 'partially_paid') && (
-                          <div className="mt-4">
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="font-medium">{formatCurrency(purchase.amount)}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Restante: {formatCurrency(purchase.remainingAmount || 0)}
+                              </p>
+                            </div>
                             <PaymentDialog
                               purchaseId={purchase.id}
-                              remainingAmount={purchase.remainingAmount}
+                              remainingAmount={purchase.remainingAmount || 0}
                             />
                           </div>
-                        )}
+                        </div>
                       </CardContent>
                     </Card>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
