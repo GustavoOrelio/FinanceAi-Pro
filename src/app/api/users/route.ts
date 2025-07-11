@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, generateToken } from "@/lib/auth";
+import { userSchema } from "@/lib/schemas";
 
 export async function GET() {
   try {
@@ -27,14 +28,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, password } = body;
 
-    if (!password) {
+    // Valida os dados de entrada usando o schema Zod
+    const validation = userSchema.safeParse(body);
+
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Senha é obrigatória" },
+        {
+          error: "Dados inválidos",
+          details: validation.error.formErrors.fieldErrors,
+        },
         { status: 400 }
       );
     }
+
+    const { name, email, password } = validation.data;
 
     // Verifica se o usuário já existe
     const existingUser = await prisma.user.findUnique({

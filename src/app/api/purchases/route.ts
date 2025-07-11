@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { NextRequest } from "next/server";
 import { verifyToken } from "@/lib/auth";
+import { purchaseSchema } from "@/lib/schemas";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,18 +18,48 @@ export async function GET(request: NextRequest) {
     const user = verifyToken(token);
     const userId = user.id;
 
-    const purchases = await prisma.purchase.findMany({
-      where: { userId },
-      include: {
-        store: true,
-        payments: true,
-      },
-      orderBy: {
-        date: "desc",
+    // Extrai parâmetros de paginação da URL
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(
+      50,
+      Math.max(1, parseInt(searchParams.get("limit") || "10"))
+    );
+    const skip = (page - 1) * limit;
+
+    // Busca total de registros e dados paginados em paralelo
+    const [total, purchases] = await prisma.$transaction([
+      prisma.purchase.count({
+        where: { userId },
+      }),
+      prisma.purchase.findMany({
+        where: { userId },
+        include: {
+          store: true,
+          payments: true,
+        },
+        orderBy: {
+          date: "desc",
+        },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    // Calcula metadados da paginação
+    const totalPages = Math.ceil(total / limit);
+
+    return NextResponse.json({
+      data: purchases,
+      meta: {
+        currentPage: page,
+        totalPages,
+        totalItems: total,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
       },
     });
-
-    return NextResponse.json(purchases);
   } catch (error: any) {
     console.error("Erro ao buscar compras:", error);
     if (error.message === "Token inválido") {
@@ -56,7 +87,22 @@ export async function POST(request: NextRequest) {
     const userId = user.id;
 
     const body = await request.json();
-    const { storeId, amount, date, category, description, installments } = body;
+
+    // Valida os dados de entrada usando o schema Zod
+    const validation = purchaseSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: "Dados inválidos",
+          details: validation.error.formErrors.fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { storeId, amount, date, category, description, installments } =
+      validation.data;
 
     // Verifica se a loja existe
     const store = await prisma.store.findUnique({
