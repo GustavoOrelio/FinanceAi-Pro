@@ -23,19 +23,43 @@ interface ConsumptionPattern {
   suggestion: string;
 }
 
+// Funções auxiliares
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    Authorization: token ? `Bearer ${token}` : "",
+  };
+};
+
+const handleResponse = async (response: Response) => {
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("app-state");
+      window.location.href = "/login";
+      throw new Error("Sessão expirada");
+    }
+    const error = await response.json();
+    throw new Error(error.message || "Erro na requisição");
+  }
+  const newToken = response.headers.get("x-new-token");
+  if (newToken) {
+    localStorage.setItem("token", newToken);
+  }
+  return response.json();
+};
+
 // Serviço de IA
 export const aiService = {
   // Chat existente
   chat: async (data: { message: string; context: any; history: any[] }) => {
     const response = await fetch("/api/ai/chat", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    return response.json();
+    return handleResponse(response);
   },
 
   // Nova função para prever gastos futuros
@@ -44,26 +68,16 @@ export const aiService = {
     categories: string[]
   ): Promise<SpendingPrediction[]> => {
     try {
-      // Prepara os dados históricos para análise
-      const purchasesByCategory = categories.map((category) => {
-        const purchases = historicalPurchases.filter(
-          (p) => p.category === category
-        );
-        return {
-          category,
-          purchases: purchases.map((p) => ({
-            amount: p.amount,
-            date: p.date,
-          })),
-        };
-      });
+      const purchasesByCategory = categories.map((category) => ({
+        category,
+        purchases: historicalPurchases
+          .filter((p) => p.category === category)
+          .map((p) => ({ amount: p.amount, date: p.date })),
+      }));
 
       const response = await fetch("/api/ai/insights", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           type: "predictions",
           data: {
@@ -73,7 +87,7 @@ export const aiService = {
         }),
       });
 
-      const { result } = await response.json();
+      const { result } = await handleResponse(response);
       return result;
     } catch (error) {
       console.error("Erro ao gerar previsões:", error);
@@ -81,14 +95,12 @@ export const aiService = {
     }
   },
 
-  // Nova função para gerar recomendações personalizadas
   getRecommendations: async (
     purchases: Purchase[],
     goals: Goal[],
     monthlyLimit: number
   ): Promise<PersonalizedRecommendation[]> => {
     try {
-      // Calcula métricas importantes
       const totalSpent = purchases.reduce((sum, p) => sum + p.amount, 0);
       const goalProgress = goals.map((g) => ({
         title: g.title,
@@ -97,10 +109,7 @@ export const aiService = {
 
       const response = await fetch("/api/ai/insights", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           type: "recommendations",
           data: {
@@ -112,7 +121,7 @@ export const aiService = {
         }),
       });
 
-      const { result } = await response.json();
+      const { result } = await handleResponse(response);
       return result;
     } catch (error) {
       console.error("Erro ao gerar recomendações:", error);
@@ -120,30 +129,28 @@ export const aiService = {
     }
   },
 
-  // Nova função para analisar padrões de consumo
   analyzeConsumptionPatterns: async (
     purchases: Purchase[]
   ): Promise<ConsumptionPattern[]> => {
     try {
-      // Agrupa compras por categoria
-      const purchasesByCategory = purchases.reduce((acc, purchase) => {
-        if (!acc[purchase.category]) {
-          acc[purchase.category] = [];
-        }
-        acc[purchase.category].push({
-          amount: purchase.amount,
-          date: purchase.date,
-          description: purchase.description,
-        });
-        return acc;
-      }, {} as Record<string, any[]>);
+      const purchasesByCategory = purchases.reduce(
+        (acc, purchase) => {
+          if (!acc[purchase.category]) {
+            acc[purchase.category] = [];
+          }
+          acc[purchase.category].push({
+            amount: purchase.amount,
+            date: purchase.date,
+            description: purchase.description,
+          });
+          return acc;
+        },
+        {} as Record<string, any[]>
+      );
 
       const response = await fetch("/api/ai/insights", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           type: "patterns",
           data: {
@@ -152,8 +159,7 @@ export const aiService = {
           },
         }),
       });
-
-      const { result } = await response.json();
+      const { result } = await handleResponse(response);
       return result;
     } catch (error) {
       console.error("Erro ao analisar padrões:", error);
