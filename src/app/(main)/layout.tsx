@@ -1,55 +1,50 @@
 'use client';
 
-import { Sidebar } from '@/app/components/Sidebar';
-import { useApp } from '@/contexts/AppContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { DataProvider, useData } from '@/contexts/DataContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Sidebar } from '@/app/components/Sidebar';
 
-// Componente interno para lidar com a lógica de autenticação
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isHydrated, isAuthenticated } = useApp();
+// Componente de guarda de rota que depende de ambos os contextos
+function MainContent({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { isLoading: isDataLoading } = useData();
   const router = useRouter();
 
   useEffect(() => {
-    // Apenas redirecione se a hidratação estiver completa e o usuário não estiver autenticado
-    if (isHydrated && !isAuthenticated) {
+    if (!isAuthLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, isHydrated, router]);
+  }, [isAuthLoading, isAuthenticated, router]);
 
-  // Enquanto a hidratação não estiver completa, mostre um loader
-  if (!isHydrated) {
+  if (isAuthLoading || !isAuthenticated) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <p>Carregando...</p>
+        <p>Carregando autenticação...</p>
       </div>
     );
   }
 
-  // Se estiver hidratado mas não autenticado, retorna null para esperar o redirecionamento
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  // Se tudo estiver OK, renderiza os filhos
-  return <>{children}</>;
+  return (
+    <div className="min-h-screen bg-background">
+      <Sidebar />
+      <main className="lg:pl-80">
+        <div className="container mx-auto p-8">
+          {isDataLoading ? <p>Carregando dados...</p> : children}
+        </div>
+      </main>
+    </div>
+  );
 }
 
-export default function MainLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// Layout principal que compõe os provedores
+export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-background">
-        <Sidebar />
-        <main className="lg:pl-80">
-          <div className="container mx-auto p-8">
-            {children}
-          </div>
-        </main>
-      </div>
-    </AuthGuard>
+    <AuthProvider>
+      <DataProvider>
+        <MainContent>{children}</MainContent>
+      </DataProvider>
+    </AuthProvider>
   );
 } 
