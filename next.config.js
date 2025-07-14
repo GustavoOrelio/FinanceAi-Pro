@@ -14,9 +14,7 @@ const nextConfig = {
 
     return config;
   },
-  experimental: {
-    serverComponentsExternalPackages: ["pdfkit"],
-  },
+  serverComponentsExternalPackages: ["pdfkit"],
 };
 
 module.exports = nextConfig;
