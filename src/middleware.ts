@@ -1,40 +1,46 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "firebase-admin";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
 
-export function middleware(request: NextRequest) {
+// Inicializa o Firebase Admin se ainda não estiver inicializado
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
+      projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    }),
+  });
+}
+
+export async function middleware(request: NextRequest) {
   // Ignora rotas que não são da API
   if (!request.url.includes("/api/")) {
     return NextResponse.next();
   }
 
-  // Ignora rotas de autenticação e registro
-  if (
-    request.url.includes("/api/auth/") ||
-    (request.url.includes("/api/users") && request.method === "POST")
-  ) {
+  // Ignora rotas públicas
+  const publicPaths = ["/api/auth"];
+  if (publicPaths.some((path) => request.url.includes(path))) {
     return NextResponse.next();
   }
 
-  // Verifica se tem o header de autorização
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-  }
-
   try {
-    // Extrai o token e adiciona o header com o token para verificação posterior
-    const token = authHeader.split(" ")[1];
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-auth-token", token);
+    // Verifica se tem o header de autorização
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
 
-    // Retorna a requisição modificada
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
+    // Verifica o token do Firebase
+    const token = authHeader.split(" ")[1];
+    await auth().verifyIdToken(token);
+
+    // Se chegou aqui, o token é válido
+    return NextResponse.next();
   } catch (error) {
-    console.error("Erro ao processar token:", error);
+    console.error("Erro ao verificar token:", error);
     return NextResponse.json({ error: "Token inválido" }, { status: 401 });
   }
 }
