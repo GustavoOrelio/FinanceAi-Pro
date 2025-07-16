@@ -3,16 +3,9 @@ export interface User {
   name: string;
   email: string;
   xp: number;
-  avatar?: string;
   monthlyLimit?: number;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface UserLevel {
-  current: number;
-  experience: number;
-  nextLevelThreshold: number;
 }
 
 export interface Store {
@@ -21,6 +14,7 @@ export interface Store {
   description?: string;
   category: string;
   logo?: string;
+  createdById: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,18 +30,17 @@ export interface Purchase {
   category: string;
   description: string;
   status: string;
+  payments?: Payment[];
   installments?: number;
   createdAt: Date;
   updatedAt: Date;
-  store?: Store;
-  payments?: Payment[];
 }
 
 export interface Payment {
   id: string;
   purchaseId: string;
   amount: number;
-  method: "pix" | "credit" | "debit" | "cash";
+  method: string;
   date: Date;
   createdAt: Date;
   updatedAt: Date;
