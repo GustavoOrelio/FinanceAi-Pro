@@ -1,168 +1,73 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { Store, Purchase, Goal } from '@/lib/types';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { storeService, purchaseService, goalService } from '@/services/api';
+import type { Store, Purchase, Goal } from '@/lib/types';
 import { toast } from 'sonner';
+import { useAuth } from './AuthContext';
 
 interface DataContextType {
   stores: Store[];
   purchases: Purchase[];
   goals: Goal[];
-  monthlyLimit: number;
-  darkMode: boolean;
   isLoading: boolean;
-  setStores: (stores: Store[]) => void;
-  setPurchases: (purchases: Purchase[]) => void;
-  setGoals: (goals: Goal[]) => void;
-  addStore: (store: Store) => void;
-  updateStore: (store: Store) => void;
-  deleteStore: (storeId: string) => void;
-  addPurchase: (purchase: Purchase) => void;
-  updatePurchase: (purchase: Purchase) => void;
-  removePurchase: (purchaseId: string) => void;
-  addGoal: (goal: Goal) => void;
-  updateGoal: (goal: Goal) => void;
-  deleteGoal: (goalId: string) => void;
-  setMonthlyLimit: (limit: number) => void;
-  toggleDarkMode: () => void;
-  loadInitialData: () => Promise<void>;
+  addStore: (store: Omit<Store, 'id'>) => Promise<void>;
+  // Adicione outras funções de dados aqui...
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-export function DataProvider({ children }: { children: ReactNode }) {
+export function DataProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [monthlyLimit, setMonthlyLimit] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('monthlyLimit');
-      return saved ? Number(saved) : 0;
-    }
-    return 0;
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('darkMode') === 'true';
-    }
-    return false;
-  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadInitialData = useCallback(async () => {
-    if (!user?.id) return;
-
-    setIsLoading(true);
-    try {
-      const [storesData, purchasesData, goalsData] = await Promise.all([
-        storeService.getAll(),
-        purchaseService.getByUser(user.id),
-        goalService.getByUser(user.id),
-      ]);
-
-      setStores(storesData);
-      setPurchases(purchasesData);
-      setGoals(goalsData);
-
-      // Load saved monthly limit
-      const savedLimit = localStorage.getItem('monthlyLimit');
-      if (savedLimit) {
-        setMonthlyLimit(Number(savedLimit));
+  const loadData = useCallback(async () => {
+    if (isAuthenticated && user?.id) {
+      setIsLoading(true);
+      try {
+        const [storesData, purchasesData, goalsData] = await Promise.all([
+          storeService.getAll(),
+          purchaseService.getByUser(user.id),
+          goalService.getByUser(user.id),
+        ]);
+        setStores(storesData);
+        setPurchases(purchasesData);
+        setGoals(goalsData);
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        toast.error("Não foi possível carregar os dados da aplicação.");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Erro ao carregar dados iniciais:', error);
-      toast.error('Erro ao carregar dados. Por favor, tente novamente.');
-    } finally {
+    } else {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [isAuthenticated, user?.id]);
 
-  // Load initial data when authenticated
   useEffect(() => {
-    if (isAuthenticated && user) {
-      loadInitialData();
-    } else {
-      // Clear data when not authenticated
-      setStores([]);
-      setPurchases([]);
-      setGoals([]);
-      setMonthlyLimit(0);
+    loadData();
+  }, [loadData]);
+
+  const addStore = useCallback(async (store: Omit<Store, 'id'>) => {
+    try {
+      const newStore = await storeService.create(store);
+      setStores(prev => [...prev, newStore]);
+      toast.success('Loja adicionada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar loja:', error);
+      toast.error('Não foi possível adicionar a loja.');
     }
-  }, [isAuthenticated, user, loadInitialData]);
-
-  // Store operations
-  const addStore = useCallback((store: Store) => {
-    setStores(prev => [...prev, store]);
-  }, []);
-
-  const updateStore = useCallback((store: Store) => {
-    setStores(prev => prev.map(s => s.id === store.id ? store : s));
-  }, []);
-
-  const deleteStore = useCallback((storeId: string) => {
-    setStores(prev => prev.filter(s => s.id !== storeId));
-  }, []);
-
-  // Purchase operations
-  const addPurchase = useCallback((purchase: Purchase) => {
-    setPurchases(prev => [...prev, purchase]);
-  }, []);
-
-  const updatePurchase = useCallback((purchase: Purchase) => {
-    setPurchases(prev => prev.map(p => p.id === purchase.id ? purchase : p));
-  }, []);
-
-  const removePurchase = useCallback((purchaseId: string) => {
-    setPurchases(prev => prev.filter(p => p.id !== purchaseId));
-  }, []);
-
-  // Goal operations
-  const addGoal = useCallback((goal: Goal) => {
-    setGoals(prev => [...prev, goal]);
-  }, []);
-
-  const updateGoal = useCallback((goal: Goal) => {
-    setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
-  }, []);
-
-  const deleteGoal = useCallback((goalId: string) => {
-    setGoals(prev => prev.filter(g => g.id !== goalId));
-  }, []);
-
-  // Theme toggle
-  const toggleDarkMode = useCallback(() => {
-    setDarkMode(prev => {
-      const newValue = !prev;
-      localStorage.setItem('darkMode', String(newValue));
-      return newValue;
-    });
   }, []);
 
   const value = {
     stores,
     purchases,
     goals,
-    monthlyLimit,
-    darkMode,
     isLoading,
-    setStores,
-    setPurchases,
-    setGoals,
     addStore,
-    updateStore,
-    deleteStore,
-    addPurchase,
-    updatePurchase,
-    removePurchase,
-    addGoal,
-    updateGoal,
-    deleteGoal,
-    setMonthlyLimit,
-    toggleDarkMode,
-    loadInitialData,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
